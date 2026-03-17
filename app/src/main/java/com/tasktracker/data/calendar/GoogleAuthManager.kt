@@ -1,12 +1,12 @@
 package com.tasktracker.data.calendar
 
 import android.content.Context
-import androidx.credentials.ClearCredentialStateRequest
-import androidx.credentials.CredentialManager
-import androidx.credentials.CustomCredential
-import androidx.credentials.GetCredentialRequest
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import android.content.Intent
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.Scope
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.util.ExponentialBackOff
 import com.google.api.services.calendar.CalendarScopes
@@ -14,6 +14,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,8 +22,6 @@ import javax.inject.Singleton
 class GoogleAuthManager @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
-    private val credentialManager = CredentialManager.create(context)
-
     private val _signedInEmail = MutableStateFlow<String?>(null)
     val signedInEmail: StateFlow<String?> = _signedInEmail.asStateFlow()
 
@@ -33,39 +32,41 @@ class GoogleAuthManager @Inject constructor(
         CalendarScopes.CALENDAR_EVENTS,
     )
 
-    suspend fun signIn(activityContext: Context): Result<String> {
-        return try {
-            val googleIdOption = GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false)
-                .setServerClientId(getWebClientId())
-                .setAutoSelectEnabled(true)
-                .build()
+    private val gso: GoogleSignInOptions by lazy {
+        GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestEmail()
+            .requestScopes(
+                Scope(CalendarScopes.CALENDAR_READONLY),
+                Scope(CalendarScopes.CALENDAR_EVENTS),
+            )
+            .requestServerAuthCode(getWebClientId())
+            .build()
+    }
 
-            val request = GetCredentialRequest.Builder()
-                .addCredentialOption(googleIdOption)
-                .build()
+    private val googleSignInClient: GoogleSignInClient by lazy {
+        GoogleSignIn.getClient(context, gso)
+    }
 
-            val result = credentialManager.getCredential(activityContext, request)
-            val credential = result.credential
-
-            if (credential is CustomCredential &&
-                credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
-            ) {
-                val googleIdTokenCredential =
-                    GoogleIdTokenCredential.createFrom(credential.data)
-                val email = googleIdTokenCredential.id
-                _signedInEmail.value = email
-                Result.success(email)
-            } else {
-                Result.failure(IllegalStateException("Unexpected credential type"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
+    init {
+        // Restore sign-in state from last signed-in account
+        val account = GoogleSignIn.getLastSignedInAccount(context)
+        if (account != null) {
+            _signedInEmail.value = account.email
         }
     }
 
+    fun getSignInIntent(): Intent = googleSignInClient.signInIntent
+
+    fun handleSignInResult(account: GoogleSignInAccount): Result<String> {
+        val email = account.email ?: return Result.failure(
+            IllegalStateException("No email in sign-in result")
+        )
+        _signedInEmail.value = email
+        return Result.success(email)
+    }
+
     suspend fun signOut() {
-        credentialManager.clearCredentialState(ClearCredentialStateRequest())
+        googleSignInClient.signOut().await()
         _signedInEmail.value = null
     }
 
@@ -77,8 +78,6 @@ class GoogleAuthManager @Inject constructor(
     }
 
     private fun getWebClientId(): String {
-        // This should come from google-services.json or BuildConfig
-        // For now, read from string resources
         return context.getString(
             context.resources.getIdentifier(
                 "default_web_client_id", "string", context.packageName

@@ -1,8 +1,10 @@
 package com.tasktracker.ui.onboarding
 
-import android.content.Context
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.common.api.ApiException
 import com.tasktracker.data.calendar.GoogleAuthManager
 import com.tasktracker.data.preferences.AppPreferences
 import com.tasktracker.data.sync.SyncScheduler
@@ -46,7 +48,7 @@ data class CalendarSelectionState(
 
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
-    private val authManager: GoogleAuthManager,
+    val authManager: GoogleAuthManager,
     private val availabilityRepository: UserAvailabilityRepository,
     private val calendarSelectionRepository: CalendarSelectionRepository,
     private val calendarRepository: CalendarRepository,
@@ -57,10 +59,13 @@ class OnboardingViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(OnboardingUiState())
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
 
-    fun signIn(context: Context) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isSigningIn = true, signInError = null) }
-            val result = authManager.signIn(context)
+    fun getSignInIntent(): Intent = authManager.getSignInIntent()
+
+    fun handleSignInResult(data: Intent?) {
+        try {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
+            val account = task.getResult(ApiException::class.java)
+            val result = authManager.handleSignInResult(account)
             result.fold(
                 onSuccess = { email ->
                     _uiState.update {
@@ -77,7 +82,15 @@ class OnboardingViewModel @Inject constructor(
                     }
                 },
             )
+        } catch (e: ApiException) {
+            _uiState.update {
+                it.copy(isSigningIn = false, signInError = "Sign-in failed: ${e.statusCode}")
+            }
         }
+    }
+
+    fun setSigningIn() {
+        _uiState.update { it.copy(isSigningIn = true, signInError = null) }
     }
 
     fun updateAvailability(availability: UserAvailability) {

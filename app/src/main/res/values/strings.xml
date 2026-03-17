@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Task Tracker</string>
-    <!-- Replace with your actual Google Cloud OAuth 2.0 Web Client ID -->
-    <string name="default_web_client_id">YOUR_WEB_CLIENT_ID</string>
+    <string name="default_web_client_id">536813908186-6tinbkqk18epvldjbek0b7r178apfter.apps.googleusercontent.com</string>
 </resources>

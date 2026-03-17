@@ -1,5 +1,7 @@
 package com.tasktracker.ui.onboarding
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -7,7 +9,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tasktracker.ui.components.AvailabilityEditor
@@ -18,6 +19,12 @@ fun OnboardingScreen(
     viewModel: OnboardingViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    val signInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        viewModel.handleSignInResult(result.data)
+    }
 
     LaunchedEffect(uiState.step) {
         if (uiState.step == OnboardingStep.DONE) onFinished()
@@ -47,7 +54,10 @@ fun OnboardingScreen(
             OnboardingStep.SIGN_IN -> SignInStep(
                 isSigningIn = uiState.isSigningIn,
                 error = uiState.signInError,
-                onSignIn = { context -> viewModel.signIn(context) },
+                onSignIn = {
+                    viewModel.setSigningIn()
+                    signInLauncher.launch(viewModel.getSignInIntent())
+                },
             )
             OnboardingStep.AVAILABILITY -> AvailabilityStep(
                 availabilities = uiState.availabilities,
@@ -69,10 +79,8 @@ fun OnboardingScreen(
 private fun SignInStep(
     isSigningIn: Boolean,
     error: String?,
-    onSignIn: (android.content.Context) -> Unit,
+    onSignIn: () -> Unit,
 ) {
-    val context = LocalContext.current
-
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -86,7 +94,7 @@ private fun SignInStep(
         )
         Spacer(Modifier.height(24.dp))
         Button(
-            onClick = { onSignIn(context) },
+            onClick = onSignIn,
             enabled = !isSigningIn,
             modifier = Modifier.fillMaxWidth(),
         ) {
