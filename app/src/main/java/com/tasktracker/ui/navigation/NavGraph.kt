@@ -1,16 +1,17 @@
 package com.tasktracker.ui.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.tasktracker.ui.onboarding.OnboardingScreen
+import com.tasktracker.ui.reschedule.RescheduleScreen
+import com.tasktracker.ui.schedule.ScheduleScreen
+import com.tasktracker.ui.settings.SettingsScreen
+import com.tasktracker.ui.taskedit.TaskEditScreen
+import com.tasktracker.ui.tasklist.TaskListScreen
 
 @Composable
 fun TaskTrackerNavGraph(
@@ -22,33 +23,52 @@ fun TaskTrackerNavGraph(
         startDestination = startDestination,
     ) {
         composable(Screen.Onboarding.route) {
-            PlaceholderScreen("Onboarding")
+            OnboardingScreen(
+                onFinished = {
+                    navController.navigate(Screen.TaskList.route) {
+                        popUpTo(Screen.Onboarding.route) { inclusive = true }
+                    }
+                },
+            )
         }
         composable(Screen.TaskList.route) {
-            PlaceholderScreen("Task List")
+            TaskListScreen(
+                onAddTask = { navController.navigate(Screen.TaskEdit.createRoute()) },
+                onEditTask = { id -> navController.navigate(Screen.TaskEdit.createRoute(id)) },
+                onNavigateToSchedule = { navController.navigate(Screen.Schedule.route) },
+                onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
+            )
         }
         composable(
             route = Screen.TaskEdit.route,
             arguments = listOf(navArgument("taskId") { type = NavType.LongType }),
-        ) { backStackEntry ->
-            val taskId = backStackEntry.arguments?.getLong("taskId") ?: -1L
-            PlaceholderScreen("Task Edit (id=$taskId)")
+        ) {
+            TaskEditScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToReschedule = { navController.navigate(Screen.Reschedule.route) },
+            )
         }
         composable(Screen.Schedule.route) {
-            PlaceholderScreen("Schedule")
+            ScheduleScreen(
+                onNavigateBack = { navController.popBackStack() },
+            )
         }
         composable(Screen.Reschedule.route) {
-            PlaceholderScreen("Reschedule")
+            RescheduleScreen(
+                onNavigateBack = {
+                    navController.popBackStack(Screen.TaskList.route, inclusive = false)
+                },
+            )
         }
         composable(Screen.Settings.route) {
-            PlaceholderScreen("Settings")
+            SettingsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onSignedOut = {
+                    navController.navigate(Screen.Onboarding.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+            )
         }
-    }
-}
-
-@Composable
-private fun PlaceholderScreen(name: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = name)
     }
 }
