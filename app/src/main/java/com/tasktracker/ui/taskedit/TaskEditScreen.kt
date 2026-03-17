@@ -56,6 +56,23 @@ fun TaskEditScreen(
         ) {
             Spacer(Modifier.height(8.dp))
 
+            // Stale data warning
+            if (uiState.staleDataWarning) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                    ),
+                ) {
+                    Text(
+                        text = "Calendar data may be outdated. Schedule might conflict with recent calendar changes.",
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                }
+            }
+
             OutlinedTextField(
                 value = uiState.title,
                 onValueChange = viewModel::updateTitle,

@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tasktracker.data.calendar.CalendarSyncManager
+import com.tasktracker.data.preferences.AppPreferences
 import com.tasktracker.domain.model.*
 import com.tasktracker.domain.repository.*
 import com.tasktracker.domain.scheduler.*
@@ -30,6 +31,7 @@ data class TaskEditUiState(
     val isSaving: Boolean = false,
     val savedSuccessfully: Boolean = false,
     val schedulingResult: SchedulingResult? = null,
+    val staleDataWarning: Boolean = false,
 )
 
 @HiltViewModel
@@ -43,6 +45,7 @@ class TaskEditViewModel @Inject constructor(
     private val syncManager: CalendarSyncManager,
     private val taskScheduler: TaskScheduler,
     private val taskValidator: TaskValidator,
+    private val appPreferences: AppPreferences,
 ) : ViewModel() {
 
     private val taskId: Long = savedStateHandle.get<Long>("taskId") ?: -1L
@@ -50,6 +53,11 @@ class TaskEditViewModel @Inject constructor(
     val uiState: StateFlow<TaskEditUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            appPreferences.isFreeBusyDataStale.collect { isStale ->
+                _uiState.update { it.copy(staleDataWarning = isStale) }
+            }
+        }
         if (taskId != -1L) {
             viewModelScope.launch {
                 val task = taskRepository.getById(taskId) ?: return@launch
