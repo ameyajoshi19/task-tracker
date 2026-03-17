@@ -22,7 +22,9 @@ object DatabaseModule {
             context,
             TaskTrackerDatabase::class.java,
             "task_tracker.db",
-        ).build()
+        )
+        .addMigrations(TaskTrackerDatabase.MIGRATION_1_2)
+        .build()
 
     @Provides
     fun provideTaskDao(db: TaskTrackerDatabase): TaskDao = db.taskDao()
@@ -35,4 +37,8 @@ object DatabaseModule {
 
     @Provides
     fun provideCalendarSelectionDao(db: TaskTrackerDatabase): CalendarSelectionDao = db.calendarSelectionDao()
+
+    @Provides
+    fun providePendingSyncOperationDao(db: TaskTrackerDatabase): PendingSyncOperationDao =
+        db.pendingSyncOperationDao()
 }

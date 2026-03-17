@@ -48,4 +48,11 @@ class Converters {
 
     @TypeConverter
     fun toBlockStatus(value: String?): BlockStatus? = value?.let { BlockStatus.valueOf(it) }
+
+    @TypeConverter
+    fun fromSyncOperationType(value: SyncOperationType?): String? = value?.name
+
+    @TypeConverter
+    fun toSyncOperationType(value: String?): SyncOperationType? =
+        value?.let { SyncOperationType.valueOf(it) }
 }
