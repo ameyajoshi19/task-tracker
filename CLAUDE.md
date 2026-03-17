@@ -43,3 +43,6 @@ Kotlin 2.1, Jetpack Compose (Material 3), Room, Hilt, WorkManager, Google Calend
 
 - Design spec: `docs/superpowers/specs/2026-03-16-smart-task-scheduler-design.md`
 - Plan 1 (Data + Scheduling): `docs/superpowers/plans/2026-03-16-plan1-data-layer-and-scheduling.md`
+- Plan 2 (Google Calendar): `docs/superpowers/plans/2026-03-16-plan2-google-calendar-integration.md`
+- Plan 3 (UI Layer): `docs/superpowers/plans/2026-03-16-plan3-ui-layer.md`
+- Plan 4 (Background Sync): `docs/superpowers/plans/2026-03-16-plan4-background-sync-offline-notifications.md`
