@@ -4,7 +4,10 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tasktracker.data.calendar.GoogleAuthManager
+import com.tasktracker.data.preferences.AppPreferences
+import com.tasktracker.data.sync.SyncScheduler
 import com.tasktracker.domain.model.CalendarSelection
+import com.tasktracker.domain.model.SyncInterval
 import com.tasktracker.domain.model.UserAvailability
 import com.tasktracker.domain.repository.*
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,6 +19,7 @@ data class SettingsUiState(
     val email: String? = null,
     val availabilities: List<UserAvailability> = emptyList(),
     val calendars: List<CalendarSelection> = emptyList(),
+    val syncInterval: SyncInterval = SyncInterval.THIRTY_MINUTES,
 )
 
 @HiltViewModel
@@ -23,17 +27,21 @@ class SettingsViewModel @Inject constructor(
     private val authManager: GoogleAuthManager,
     private val availabilityRepository: UserAvailabilityRepository,
     private val calendarSelectionRepository: CalendarSelectionRepository,
+    private val appPreferences: AppPreferences,
+    private val syncScheduler: SyncScheduler,
 ) : ViewModel() {
 
     val uiState: StateFlow<SettingsUiState> = combine(
         authManager.signedInEmail,
         availabilityRepository.observeAll(),
         calendarSelectionRepository.observeAll(),
-    ) { email, availabilities, calendars ->
+        appPreferences.syncInterval,
+    ) { email, availabilities, calendars, interval ->
         SettingsUiState(
             email = email,
             availabilities = availabilities,
             calendars = calendars,
+            syncInterval = interval,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -50,6 +58,13 @@ class SettingsViewModel @Inject constructor(
     fun toggleCalendar(calendar: CalendarSelection) {
         viewModelScope.launch {
             calendarSelectionRepository.update(calendar.copy(enabled = !calendar.enabled))
+        }
+    }
+
+    fun updateSyncInterval(interval: SyncInterval) {
+        viewModelScope.launch {
+            appPreferences.setSyncInterval(interval)
+            syncScheduler.schedule(interval)
         }
     }
 

@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tasktracker.domain.model.SyncInterval
 import com.tasktracker.ui.components.AvailabilityEditor
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,6 +93,39 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(cal.calendarName, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+
+            // Sync interval section
+            Text("Background Sync", style = MaterialTheme.typography.titleMedium)
+            var expanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded },
+            ) {
+                OutlinedTextField(
+                    value = uiState.syncInterval.label,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Sync Interval") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(),
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                ) {
+                    SyncInterval.entries.forEach { interval ->
+                        DropdownMenuItem(
+                            text = { Text(interval.label) },
+                            onClick = {
+                                viewModel.updateSyncInterval(interval)
+                                expanded = false
+                            },
+                        )
+                    }
                 }
             }
 
