@@ -1,0 +1,12 @@
+local.properties
+.gradle
+build/
+app/build/
+.temp/
+*.iml
+.idea/
+build-tools/
+platform-tools/
+platforms/
+licenses/
+.knownPackages
