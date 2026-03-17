@@ -168,6 +168,81 @@ class TaskScheduler(
         return SchedulingResult.Scheduled(resultBlocks)
     }
 
+    fun scheduleWithConflictResolution(
+        newTask: Task,
+        allTasks: List<Task>,
+        existingBlocks: List<ScheduledBlock>,
+        availability: List<UserAvailability>,
+        busySlots: List<TimeSlot>,
+        startDate: LocalDate,
+        endDate: LocalDate,
+        zoneId: ZoneId,
+    ): SchedulingResult {
+        // First, try to schedule the new task without touching existing blocks
+        val directResult = schedule(
+            tasks = listOf(newTask),
+            existingBlocks = existingBlocks,
+            availability = availability,
+            busySlots = busySlots,
+            startDate = startDate,
+            endDate = endDate,
+            zoneId = zoneId,
+        )
+        if (directResult is SchedulingResult.Scheduled && directResult.blocks.isNotEmpty()) {
+            return directResult
+        }
+
+        // Can't fit — try displacing lower-priority tasks
+        val lowerPriorityBlocks = existingBlocks.filter { block ->
+            val blockTask = allTasks.find { it.id == block.taskId }
+            blockTask != null &&
+                block.status == BlockStatus.CONFIRMED &&
+                priorityComparator.compare(newTask, blockTask) < 0
+        }
+
+        if (lowerPriorityBlocks.isEmpty()) {
+            return if (newTask.deadline != null) {
+                SchedulingResult.DeadlineAtRisk(newTask, "Cannot fit before deadline.")
+            } else {
+                SchedulingResult.NoSlotsAvailable(newTask, "No slots available.")
+            }
+        }
+
+        // Re-run scheduler with lower-priority blocks removed
+        val remainingBlocks = existingBlocks - lowerPriorityBlocks.toSet()
+        val tasksToReschedule = allTasks.filter { task ->
+            task.id == newTask.id || lowerPriorityBlocks.any { it.taskId == task.id }
+        }
+
+        val rescheduleResult = schedule(
+            tasks = tasksToReschedule,
+            existingBlocks = remainingBlocks,
+            availability = availability,
+            busySlots = busySlots,
+            startDate = startDate,
+            endDate = endDate,
+            zoneId = zoneId,
+        )
+
+        return when (rescheduleResult) {
+            is SchedulingResult.Scheduled -> {
+                val proposedBlocks = rescheduleResult.blocks.map {
+                    it.copy(status = BlockStatus.PROPOSED)
+                }
+                val movedPairs = lowerPriorityBlocks.mapNotNull { oldBlock ->
+                    val newBlock = proposedBlocks.find { it.taskId == oldBlock.taskId }
+                    if (newBlock != null) oldBlock to newBlock else null
+                }
+                val newTaskBlocks = proposedBlocks.filter { it.taskId == newTask.id }
+                SchedulingResult.NeedsReschedule(
+                    newBlocks = newTaskBlocks,
+                    movedBlocks = movedPairs,
+                )
+            }
+            else -> rescheduleResult
+        }
+    }
+
     private fun matchesDayPreference(
         dayOfWeek: DayOfWeek,
         preference: DayPreference,
