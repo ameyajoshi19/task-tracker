@@ -4,7 +4,10 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tasktracker.data.calendar.GoogleAuthManager
+import com.tasktracker.data.preferences.AppPreferences
+import com.tasktracker.data.sync.SyncScheduler
 import com.tasktracker.domain.model.CalendarSelection
+import com.tasktracker.domain.model.SyncInterval
 import com.tasktracker.domain.model.UserAvailability
 import com.tasktracker.domain.repository.*
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -47,6 +50,8 @@ class OnboardingViewModel @Inject constructor(
     private val availabilityRepository: UserAvailabilityRepository,
     private val calendarSelectionRepository: CalendarSelectionRepository,
     private val calendarRepository: CalendarRepository,
+    private val syncScheduler: SyncScheduler,
+    private val appPreferences: AppPreferences,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(OnboardingUiState())
@@ -139,8 +144,11 @@ class OnboardingViewModel @Inject constructor(
                 )
             }
             try {
-                calendarRepository.getOrCreateTaskCalendar()
+                val calendarId = calendarRepository.getOrCreateTaskCalendar()
+                appPreferences.setTaskCalendarId(calendarId)
             } catch (_: Exception) { /* Will retry on first sync */ }
+            appPreferences.setOnboardingCompleted(true)
+            syncScheduler.schedule(SyncInterval.THIRTY_MINUTES)
             _uiState.update { it.copy(step = OnboardingStep.DONE) }
         }
     }
