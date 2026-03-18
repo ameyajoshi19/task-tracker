@@ -14,6 +14,7 @@ import com.tasktracker.domain.scheduler.TaskScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.update
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -25,6 +26,7 @@ data class TaskListUiState(
     val dueTodayTasks: List<TaskWithScheduleInfo> = emptyList(),
     val isLoading: Boolean = true,
     val rescheduleError: String? = null,
+    val reschedulingTaskIds: Set<Long> = emptySet(),
 )
 
 @HiltViewModel
@@ -40,11 +42,13 @@ class TaskListViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _rescheduleError = MutableStateFlow<String?>(null)
+    private val _reschedulingTaskIds = MutableStateFlow<Set<Long>>(emptySet())
 
     val uiState: StateFlow<TaskListUiState> = combine(
         taskRepository.observeAllWithScheduleInfo(),
         _rescheduleError,
-    ) { tasks, rescheduleErr ->
+        _reschedulingTaskIds,
+    ) { tasks, rescheduleErr, reschedulingIds ->
         val zoneId = ZoneId.systemDefault()
         val today = LocalDate.now(zoneId)
 
@@ -63,6 +67,7 @@ class TaskListViewModel @Inject constructor(
             dueTodayTasks = dueToday,
             isLoading = false,
             rescheduleError = rescheduleErr,
+            reschedulingTaskIds = reschedulingIds,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -91,78 +96,82 @@ class TaskListViewModel @Inject constructor(
     fun rescheduleTask(taskId: Long) {
         viewModelScope.launch {
             _rescheduleError.value = null
+            _reschedulingTaskIds.update { it + taskId }
+            try {
+                val task = taskRepository.getById(taskId) ?: return@launch
+                val oldBlocks = blockRepository.getByTaskId(taskId)
+                    .filter { it.status == BlockStatus.CONFIRMED }
 
-            val task = taskRepository.getById(taskId) ?: return@launch
-            val oldBlocks = blockRepository.getByTaskId(taskId)
-                .filter { it.status == BlockStatus.CONFIRMED }
+                if (oldBlocks.isEmpty()) return@launch
 
-            if (oldBlocks.isEmpty()) return@launch
+                val blockedSlots = oldBlocks.map { TimeSlot(it.startTime, it.endTime) }
 
-            val blockedSlots = oldBlocks.map { TimeSlot(it.startTime, it.endTime) }
-
-            val availability = availabilityRepository.getAll()
-            val existingBlocks = blockRepository.getByStatuses(
-                listOf(BlockStatus.CONFIRMED, BlockStatus.COMPLETED)
-            ).filter { it.taskId != taskId }
-            val allTasks = taskRepository.getByStatuses(
-                listOf(TaskStatus.PENDING, TaskStatus.SCHEDULED)
-            )
-            val enabledCalendars = calendarSelectionRepository.getEnabled()
-            val busySlots = try {
-                val now = Instant.now()
-                calendarRepository.getFreeBusySlots(
-                    calendarIds = enabledCalendars.map { it.googleCalendarId },
-                    timeMin = now,
-                    timeMax = now.plusSeconds(14 * 24 * 3600),
+                val availability = availabilityRepository.getAll()
+                val existingBlocks = blockRepository.getByStatuses(
+                    listOf(BlockStatus.CONFIRMED, BlockStatus.COMPLETED)
+                ).filter { it.taskId != taskId }
+                val allTasks = taskRepository.getByStatuses(
+                    listOf(TaskStatus.PENDING, TaskStatus.SCHEDULED)
                 )
-            } catch (_: Exception) {
-                emptyList()
-            }
+                val enabledCalendars = calendarSelectionRepository.getEnabled()
+                val busySlots = try {
+                    val now = Instant.now()
+                    calendarRepository.getFreeBusySlots(
+                        calendarIds = enabledCalendars.map { it.googleCalendarId },
+                        timeMin = now,
+                        timeMax = now.plusSeconds(14 * 24 * 3600),
+                    )
+                } catch (_: Exception) {
+                    emptyList()
+                }
 
-            val zoneId = ZoneId.systemDefault()
-            val today = LocalDate.now(zoneId)
-            val taskForScheduling = task.copy(status = TaskStatus.PENDING)
+                val zoneId = ZoneId.systemDefault()
+                val today = LocalDate.now(zoneId)
+                val taskForScheduling = task.copy(status = TaskStatus.PENDING)
 
-            val result = taskScheduler.scheduleWithConflictResolution(
-                newTask = taskForScheduling,
-                allTasks = allTasks,
-                existingBlocks = existingBlocks,
-                availability = availability,
-                busySlots = busySlots + blockedSlots,
-                startDate = today,
-                endDate = today.plusDays(14),
-                zoneId = zoneId,
-                now = Instant.now(),
-            )
+                val result = taskScheduler.scheduleWithConflictResolution(
+                    newTask = taskForScheduling,
+                    allTasks = allTasks,
+                    existingBlocks = existingBlocks,
+                    availability = availability,
+                    busySlots = busySlots + blockedSlots,
+                    startDate = today,
+                    endDate = today.plusDays(14),
+                    zoneId = zoneId,
+                    now = Instant.now(),
+                )
 
-            appPreferences.setLastSyncTimestamp(Instant.now())
+                appPreferences.setLastSyncTimestamp(Instant.now())
 
-            when (result) {
-                is SchedulingResult.Scheduled -> {
-                    syncManager.deleteTaskEvents(taskId)
-                    blockRepository.deleteByTaskId(taskId)
-                    val newBlocks = result.blocks.map { it.copy(taskId = taskId) }
-                    val insertedIds = blockRepository.insertAll(newBlocks)
-                    taskRepository.updateStatus(taskId, TaskStatus.SCHEDULED)
-                    newBlocks.zip(insertedIds).forEach { (block, id) ->
-                        syncManager.pushNewBlock(block.copy(id = id))
+                when (result) {
+                    is SchedulingResult.Scheduled -> {
+                        syncManager.deleteTaskEvents(taskId)
+                        blockRepository.deleteByTaskId(taskId)
+                        val newBlocks = result.blocks.map { it.copy(taskId = taskId) }
+                        val insertedIds = blockRepository.insertAll(newBlocks)
+                        taskRepository.updateStatus(taskId, TaskStatus.SCHEDULED)
+                        newBlocks.zip(insertedIds).forEach { (block, id) ->
+                            syncManager.pushNewBlock(block.copy(id = id))
+                        }
+                    }
+                    is SchedulingResult.NeedsReschedule -> {
+                        syncManager.deleteTaskEvents(taskId)
+                        blockRepository.deleteByTaskId(taskId)
+                        val newBlocks = result.newBlocks.map { it.copy(taskId = taskId) }
+                        val movedBlocks = result.movedBlocks.map { it.second }
+                        blockRepository.insertAll(newBlocks + movedBlocks)
+                        taskRepository.updateStatus(taskId, TaskStatus.SCHEDULED)
+                        newBlocks.forEach { syncManager.pushNewBlock(it) }
+                    }
+                    is SchedulingResult.DeadlineAtRisk -> {
+                        _rescheduleError.value = result.message
+                    }
+                    is SchedulingResult.NoSlotsAvailable -> {
+                        _rescheduleError.value = result.message
                     }
                 }
-                is SchedulingResult.NeedsReschedule -> {
-                    syncManager.deleteTaskEvents(taskId)
-                    blockRepository.deleteByTaskId(taskId)
-                    val newBlocks = result.newBlocks.map { it.copy(taskId = taskId) }
-                    val movedBlocks = result.movedBlocks.map { it.second }
-                    blockRepository.insertAll(newBlocks + movedBlocks)
-                    taskRepository.updateStatus(taskId, TaskStatus.SCHEDULED)
-                    newBlocks.forEach { syncManager.pushNewBlock(it) }
-                }
-                is SchedulingResult.DeadlineAtRisk -> {
-                    _rescheduleError.value = result.message
-                }
-                is SchedulingResult.NoSlotsAvailable -> {
-                    _rescheduleError.value = result.message
-                }
+            } finally {
+                _reschedulingTaskIds.update { it - taskId }
             }
         }
     }

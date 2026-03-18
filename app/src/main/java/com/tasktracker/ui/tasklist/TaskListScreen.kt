@@ -1,7 +1,14 @@
 package com.tasktracker.ui.tasklist
 
+import android.provider.Settings
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,12 +22,16 @@ import androidx.compose.material.icons.filled.EventRepeat
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
+import androidx.compose.ui.res.painterResource
+import com.tasktracker.R
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -77,7 +88,16 @@ fun TaskListScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_sortd_logo),
+                            contentDescription = null,
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(28.dp),
+                        )
                         Text("sortd", style = MaterialTheme.typography.headlineMedium)
                         Text(".", style = MaterialTheme.typography.headlineMedium, color = SortdColors.accent)
                     }
@@ -130,6 +150,7 @@ fun TaskListScreen(
                             onComplete = { viewModel.completeTask(taskInfo.task) },
                             onDelete = { taskToDelete = taskInfo },
                             onReschedule = { viewModel.rescheduleTask(taskInfo.task.id) },
+                            isRescheduling = taskInfo.task.id in uiState.reschedulingTaskIds,
                         )
                     }
                     item { Spacer(Modifier.height(8.dp)) }
@@ -152,6 +173,7 @@ fun TaskListScreen(
                             onComplete = { viewModel.completeTask(taskInfo.task) },
                             onDelete = { taskToDelete = taskInfo },
                             onReschedule = { viewModel.rescheduleTask(taskInfo.task.id) },
+                            isRescheduling = taskInfo.task.id in uiState.reschedulingTaskIds,
                         )
                     }
                 }
@@ -183,6 +205,7 @@ fun TaskListScreen(
                             onComplete = { },
                             onDelete = { taskToDelete = taskInfo },
                             onReschedule = null,
+                            isRescheduling = false,
                         )
                     }
                 }
@@ -199,6 +222,7 @@ private fun SwipeableTaskCard(
     onComplete: () -> Unit,
     onDelete: () -> Unit,
     onReschedule: (() -> Unit)?,
+    isRescheduling: Boolean = false,
 ) {
     val isScheduled = taskInfo.task.status == TaskStatus.SCHEDULED
     val dismissState = rememberSwipeToDismissBoxState(
@@ -256,14 +280,63 @@ private fun SwipeableTaskCard(
                 }
             }
         },
-        enableDismissFromStartToEnd = isScheduled && onReschedule != null,
-        enableDismissFromEndToStart = true,
+        enableDismissFromStartToEnd = isScheduled && onReschedule != null && !isRescheduling,
+        enableDismissFromEndToStart = !isRescheduling,
     ) {
-        TaskCard(
-            taskInfo = taskInfo,
-            onClick = onEdit,
-            onComplete = onComplete,
-        )
+        Box {
+            TaskCard(
+                taskInfo = taskInfo,
+                onClick = if (isRescheduling) ({ }) else onEdit,
+                onComplete = if (isRescheduling) ({ }) else onComplete,
+            )
+            if (isRescheduling) {
+                val context = LocalContext.current
+                val reduceMotion = Settings.Global.getFloat(
+                    context.contentResolver,
+                    Settings.Global.ANIMATOR_DURATION_SCALE,
+                    1f,
+                ) == 0f
+                if (reduceMotion) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(SortdColors.accent.copy(alpha = 0.12f)),
+                    )
+                } else {
+                    val transition = rememberInfiniteTransition(label = "shimmer")
+                    val offsetX by transition.animateFloat(
+                        initialValue = -1f,
+                        targetValue = 2f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(1500, easing = LinearEasing),
+                        ),
+                        label = "shimmer-offset",
+                    )
+                    BoxWithConstraints(
+                        modifier = Modifier.matchParentSize(),
+                    ) {
+                        val widthPx = with(LocalDensity.current) { maxWidth.toPx() }
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(
+                                    Brush.horizontalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            SortdColors.accent.copy(alpha = 0.2f),
+                                            Color.Transparent,
+                                        ),
+                                        startX = offsetX * widthPx,
+                                        endX = (offsetX + 1f) * widthPx,
+                                    ),
+                                ),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
