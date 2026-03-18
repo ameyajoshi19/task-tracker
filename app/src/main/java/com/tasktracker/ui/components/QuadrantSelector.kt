@@ -1,3 +1,4 @@
+// app/src/main/java/com/tasktracker/ui/components/QuadrantSelector.kt
 package com.tasktracker.ui.components
 
 import androidx.compose.foundation.background
@@ -12,54 +13,102 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.tasktracker.domain.model.Quadrant
-import com.tasktracker.ui.theme.*
+import com.tasktracker.ui.theme.SortdColors
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+
+fun suggestQuadrant(deadline: Instant?, now: Instant): Quadrant? {
+    if (deadline == null) return null
+    val hoursUntil = ChronoUnit.HOURS.between(now, deadline)
+    return when {
+        hoursUntil <= 24 -> Quadrant.URGENT_IMPORTANT  // Due today or overdue
+        hoursUntil <= 72 -> Quadrant.URGENT              // Within 3 days
+        hoursUntil <= 168 -> Quadrant.IMPORTANT           // Within 1 week
+        else -> null                                       // Beyond 1 week
+    }
+}
+
+private data class QuadrantInfo(
+    val quadrant: Quadrant,
+    val icon: String,
+    val displayName: String,
+    val subtitle: String,
+    val colorStart: Color,
+    val colorEnd: Color,
+)
+
+private val QUADRANT_INFO = listOf(
+    QuadrantInfo(Quadrant.URGENT_IMPORTANT, "⚡", "Now", "Urgent & Important", SortdColors.nowStart, SortdColors.nowEnd),
+    QuadrantInfo(Quadrant.IMPORTANT, "🎯", "Next", "Important", SortdColors.nextStart, SortdColors.nextEnd),
+    QuadrantInfo(Quadrant.URGENT, "🔄", "Soon", "Urgent", SortdColors.soonStart, SortdColors.soonEnd),
+    QuadrantInfo(Quadrant.NEITHER, "📦", "Later", "Neither", SortdColors.laterStart, SortdColors.laterEnd),
+)
 
 @Composable
 fun QuadrantSelector(
     selected: Quadrant,
     onSelect: (Quadrant) -> Unit,
     modifier: Modifier = Modifier,
+    suggestedQuadrant: Quadrant? = null,
+    suggestionReason: String? = null,
 ) {
     Column(modifier = modifier) {
         Text(
-            text = "Priority",
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(bottom = 8.dp),
+            text = "PRIORITY",
+            style = MaterialTheme.typography.labelLarge.copy(
+                fontSize = 11.sp,
+                letterSpacing = 0.5.sp,
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 6.dp),
         )
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                QuadrantCell(
-                    label = "Urgent &\nImportant",
-                    color = QuadrantUrgentImportant,
-                    isSelected = selected == Quadrant.URGENT_IMPORTANT,
-                    onClick = { onSelect(Quadrant.URGENT_IMPORTANT) },
-                    modifier = Modifier.weight(1f),
+
+        // Smart suggestion banner
+        if (suggestedQuadrant != null && suggestionReason != null) {
+            val info = QUADRANT_INFO.first { it.quadrant == suggestedQuadrant }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(info.colorStart.copy(alpha = 0.1f))
+                    .border(1.dp, info.colorStart.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                    .padding(8.dp, 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("✨", fontSize = 14.sp)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Suggested ",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = info.colorStart,
                 )
-                QuadrantCell(
-                    label = "Important",
-                    color = QuadrantImportant,
-                    isSelected = selected == Quadrant.IMPORTANT,
-                    onClick = { onSelect(Quadrant.IMPORTANT) },
-                    modifier = Modifier.weight(1f),
+                Text(
+                    text = info.displayName,
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                    color = info.colorEnd,
+                )
+                Text(
+                    text = " — $suggestionReason",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = info.colorStart,
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                QuadrantCell(
-                    label = "Urgent",
-                    color = QuadrantUrgent,
-                    isSelected = selected == Quadrant.URGENT,
-                    onClick = { onSelect(Quadrant.URGENT) },
-                    modifier = Modifier.weight(1f),
-                )
-                QuadrantCell(
-                    label = "Neither",
-                    color = QuadrantNeither,
-                    isSelected = selected == Quadrant.NEITHER,
-                    onClick = { onSelect(Quadrant.NEITHER) },
-                    modifier = Modifier.weight(1f),
-                )
+            Spacer(Modifier.height(8.dp))
+        }
+
+        // 2x2 grid
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                QuadrantCell(QUADRANT_INFO[0], selected, suggestedQuadrant, onSelect, Modifier.weight(1f))
+                QuadrantCell(QUADRANT_INFO[1], selected, suggestedQuadrant, onSelect, Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                QuadrantCell(QUADRANT_INFO[2], selected, suggestedQuadrant, onSelect, Modifier.weight(1f))
+                QuadrantCell(QUADRANT_INFO[3], selected, suggestedQuadrant, onSelect, Modifier.weight(1f))
             }
         }
     }
@@ -67,30 +116,57 @@ fun QuadrantSelector(
 
 @Composable
 private fun QuadrantCell(
-    label: String,
-    color: Color,
-    isSelected: Boolean,
-    onClick: () -> Unit,
+    info: QuadrantInfo,
+    selected: Quadrant,
+    suggested: Quadrant?,
+    onSelect: (Quadrant) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(8.dp)
-    Box(
+    val isSelected = info.quadrant == selected
+    val isSuggested = info.quadrant == suggested
+    val shape = RoundedCornerShape(12.dp)
+    val bgAlpha = when {
+        isSelected || isSuggested -> 0.25f
+        else -> 0.12f
+    }
+    val borderColor = when {
+        isSelected || isSuggested -> info.colorStart
+        else -> info.colorStart.copy(alpha = 0.25f)
+    }
+
+    Column(
         modifier = modifier
-            .height(64.dp)
             .clip(shape)
-            .background(if (isSelected) color.copy(alpha = 0.2f) else Color.Transparent)
-            .border(
-                width = if (isSelected) 2.dp else 1.dp,
-                color = if (isSelected) color else color.copy(alpha = 0.4f),
-                shape = shape,
-            )
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
+            .background(info.colorStart.copy(alpha = bgAlpha))
+            .border(1.dp, borderColor, shape)
+            .clickable { onSelect(info.quadrant) }
+            .padding(10.dp, 10.dp),
     ) {
+        Text(info.icon, fontSize = 16.sp)
         Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (isSelected) color else MaterialTheme.colorScheme.onSurface,
+            text = info.displayName,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = info.colorStart,
         )
+        Text(
+            text = info.subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = info.colorStart.copy(alpha = 0.7f),
+            fontSize = 10.sp,
+        )
+        if (isSuggested && !isSelected) {
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = "SUGGESTED",
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp,
+                color = Color.White,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(info.colorStart)
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
     }
 }
