@@ -1,8 +1,11 @@
 package com.tasktracker.ui.schedule
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -31,9 +34,14 @@ fun ScheduleScreen(
             TopAppBar(
                 title = {
                     Text(
-                        uiState.selectedDate.format(
-                            DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
-                        )
+                        text = if (uiState.viewMode == ViewMode.ALL) {
+                            "All Scheduled"
+                        } else {
+                            uiState.selectedDate.format(
+                                DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+                            )
+                        },
+                        style = MaterialTheme.typography.headlineMedium,
                     )
                 },
                 navigationIcon = {
@@ -48,6 +56,7 @@ fun ScheduleScreen(
                             else Icons.Default.CalendarViewDay,
                             "Toggle view",
                         )
+
                     }
                 },
             )
@@ -58,23 +67,40 @@ fun ScheduleScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = { viewModel.navigateDay(false) }) {
-                    Icon(Icons.Default.ChevronLeft, "Previous day")
-                }
-                Text(
-                    uiState.selectedDate.dayOfWeek.name.lowercase()
-                        .replaceFirstChar { it.uppercase() },
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                IconButton(onClick = { viewModel.navigateDay(true) }) {
-                    Icon(Icons.Default.ChevronRight, "Next day")
+            if (uiState.viewMode == ViewMode.DAILY) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = { viewModel.navigateDay(false) }) {
+                        Icon(Icons.Default.ChevronLeft, "Previous day")
+                    }
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                SortdColors.accent.copy(alpha = 0.15f),
+                                RoundedCornerShape(20.dp),
+                            )
+                            .border(
+                                1.dp,
+                                SortdColors.accent.copy(alpha = 0.3f),
+                                RoundedCornerShape(20.dp),
+                            )
+                            .padding(horizontal = 20.dp, vertical = 6.dp),
+                    ) {
+                        Text(
+                            uiState.selectedDate.dayOfWeek.name.lowercase()
+                                .replaceFirstChar { it.uppercase() },
+                            style = MaterialTheme.typography.labelLarge,
+                            color = SortdColors.accentLight,
+                        )
+                    }
+                    IconButton(onClick = { viewModel.navigateDay(true) }) {
+                        Icon(Icons.Default.ChevronRight, "Next day")
+                    }
                 }
             }
 

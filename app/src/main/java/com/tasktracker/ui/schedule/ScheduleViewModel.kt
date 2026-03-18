@@ -29,7 +29,7 @@ data class ScheduleUiState(
     val viewMode: ViewMode = ViewMode.DAILY,
 )
 
-enum class ViewMode { DAILY, WEEKLY }
+enum class ViewMode { DAILY, ALL }
 
 @HiltViewModel
 class ScheduleViewModel @Inject constructor(
@@ -54,7 +54,7 @@ class ScheduleViewModel @Inject constructor(
 
     fun toggleViewMode() {
         _uiState.update {
-            it.copy(viewMode = if (it.viewMode == ViewMode.DAILY) ViewMode.WEEKLY else ViewMode.DAILY)
+            it.copy(viewMode = if (it.viewMode == ViewMode.DAILY) ViewMode.ALL else ViewMode.DAILY)
         }
         loadSchedule()
     }
@@ -71,25 +71,26 @@ class ScheduleViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             val state = _uiState.value
             val zoneId = ZoneId.systemDefault()
-            val (start, end) = when (state.viewMode) {
-                ViewMode.DAILY -> {
-                    val dayStart = state.selectedDate.atStartOfDay(zoneId).toInstant()
-                    val dayEnd = state.selectedDate.plusDays(1).atStartOfDay(zoneId).toInstant()
-                    dayStart to dayEnd
-                }
-                ViewMode.WEEKLY -> {
-                    val weekStart = state.selectedDate.with(java.time.DayOfWeek.MONDAY)
-                        .atStartOfDay(zoneId).toInstant()
-                    val weekEnd = weekStart.atZone(zoneId).plusWeeks(1).toInstant()
-                    weekStart to weekEnd
-                }
+            val useTimeRange = state.viewMode == ViewMode.DAILY
+            val (start, end) = if (useTimeRange) {
+                val dayStart = state.selectedDate.atStartOfDay(zoneId).toInstant()
+                val dayEnd = state.selectedDate.plusDays(1).atStartOfDay(zoneId).toInstant()
+                dayStart to dayEnd
+            } else {
+                null to null
             }
 
             val items = mutableListOf<ScheduleItem>()
 
             val blocks = blockRepository.getByStatuses(
                 listOf(BlockStatus.CONFIRMED, BlockStatus.COMPLETED)
-            ).filter { it.startTime >= start && it.startTime < end }
+            ).let { allBlocks ->
+                if (start != null && end != null) {
+                    allBlocks.filter { it.startTime >= start && it.startTime < end }
+                } else {
+                    allBlocks
+                }
+            }
 
             for (block in blocks) {
                 val task = taskRepository.getById(block.taskId)
@@ -113,26 +114,28 @@ class ScheduleViewModel @Inject constructor(
                 )
             }
 
-            try {
-                val enabledCalendars = calendarSelectionRepository.getEnabled()
-                val taskCalendarId = appPreferences.taskCalendarId.first()
-                for (cal in enabledCalendars) {
-                    // Skip the task calendar — its events are already shown as task blocks
-                    if (cal.googleCalendarId == taskCalendarId) continue
-                    val events = calendarRepository.getEvents(cal.googleCalendarId, start, end)
-                    items.addAll(
-                        events.map { event ->
-                            ScheduleItem(
-                                title = event.title.ifBlank { "Busy" },
-                                startTime = event.startTime,
-                                endTime = event.endTime,
-                                isTaskBlock = false,
-                            )
-                        }
-                    )
+            if (start != null && end != null) {
+                try {
+                    val enabledCalendars = calendarSelectionRepository.getEnabled()
+                    val taskCalendarId = appPreferences.taskCalendarId.first()
+                    for (cal in enabledCalendars) {
+                        // Skip the task calendar — its events are already shown as task blocks
+                        if (cal.googleCalendarId == taskCalendarId) continue
+                        val events = calendarRepository.getEvents(cal.googleCalendarId, start, end)
+                        items.addAll(
+                            events.map { event ->
+                                ScheduleItem(
+                                    title = event.title.ifBlank { "Busy" },
+                                    startTime = event.startTime,
+                                    endTime = event.endTime,
+                                    isTaskBlock = false,
+                                )
+                            }
+                        )
+                    }
+                } catch (_: Exception) {
+                    // Offline — show only task blocks
                 }
-            } catch (_: Exception) {
-                // Offline — show only task blocks
             }
 
             _uiState.update {
