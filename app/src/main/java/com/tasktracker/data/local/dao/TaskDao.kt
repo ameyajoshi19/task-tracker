@@ -30,4 +30,21 @@ interface TaskDao {
 
     @Query("UPDATE tasks SET status = :status, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updateStatus(id: Long, status: TaskStatus, updatedAt: Long)
+
+    @Query("""
+        SELECT t.*,
+               sb.startTime AS nextBlockStart,
+               sb.endTime AS nextBlockEnd,
+               (SELECT COUNT(*) FROM scheduled_blocks sb3
+                WHERE sb3.taskId = t.id AND sb3.status = 'CONFIRMED') AS blockCount
+        FROM tasks t
+        LEFT JOIN scheduled_blocks sb
+            ON sb.taskId = t.id AND sb.status = 'CONFIRMED'
+            AND sb.startTime = (
+                SELECT MIN(sb2.startTime) FROM scheduled_blocks sb2
+                WHERE sb2.taskId = t.id AND sb2.status = 'CONFIRMED'
+            )
+        ORDER BY t.createdAt DESC
+    """)
+    fun observeAllWithNextBlock(): Flow<List<TaskWithNextBlockTuple>>
 }

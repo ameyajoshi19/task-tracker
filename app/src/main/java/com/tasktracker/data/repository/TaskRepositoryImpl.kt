@@ -4,6 +4,7 @@ import com.tasktracker.data.local.dao.TaskDao
 import com.tasktracker.data.local.entity.TaskEntity
 import com.tasktracker.domain.model.Task
 import com.tasktracker.domain.model.TaskStatus
+import com.tasktracker.domain.model.TaskWithScheduleInfo
 import com.tasktracker.domain.repository.TaskRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -28,6 +29,31 @@ class TaskRepositoryImpl @Inject constructor(
 
     override fun observeAll(): Flow<List<Task>> =
         taskDao.observeAll().map { entities -> entities.map { it.toDomain() } }
+
+    override fun observeAllWithScheduleInfo(): Flow<List<TaskWithScheduleInfo>> =
+        taskDao.observeAllWithNextBlock().map { tuples ->
+            tuples.map { t ->
+                TaskWithScheduleInfo(
+                    task = Task(
+                        id = t.id,
+                        title = t.title,
+                        description = t.description,
+                        estimatedDurationMinutes = t.estimatedDurationMinutes,
+                        quadrant = t.quadrant,
+                        deadline = t.deadline,
+                        dayPreference = t.dayPreference,
+                        splittable = t.splittable,
+                        status = t.status,
+                        recurringPattern = t.recurringPattern,
+                        createdAt = t.createdAt,
+                        updatedAt = t.updatedAt,
+                    ),
+                    nextBlockStart = t.nextBlockStart,
+                    nextBlockEnd = t.nextBlockEnd,
+                    blockCount = t.blockCount,
+                )
+            }
+        }
 
     override suspend fun getByStatus(status: TaskStatus): List<Task> =
         taskDao.getByStatus(status).map { it.toDomain() }
