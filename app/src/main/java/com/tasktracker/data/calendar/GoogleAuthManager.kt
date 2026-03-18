@@ -28,16 +28,14 @@ class GoogleAuthManager @Inject constructor(
     val isSignedIn: Boolean get() = _signedInEmail.value != null
 
     private val scopes = listOf(
-        CalendarScopes.CALENDAR_READONLY,
-        CalendarScopes.CALENDAR_EVENTS,
+        CalendarScopes.CALENDAR,
     )
 
     private val gso: GoogleSignInOptions by lazy {
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
             .requestScopes(
-                Scope(CalendarScopes.CALENDAR_READONLY),
-                Scope(CalendarScopes.CALENDAR_EVENTS),
+                Scope(CalendarScopes.CALENDAR),
             )
             .requestServerAuthCode(getWebClientId())
             .build()

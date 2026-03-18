@@ -122,6 +122,7 @@ fun ScheduleScreen(
                             color = color,
                             height = 64.dp,
                             isTaskBlock = item.isTaskBlock,
+                            isCompleted = item.isCompleted,
                         )
                     }
                 }

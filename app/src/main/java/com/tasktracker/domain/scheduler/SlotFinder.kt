@@ -14,6 +14,7 @@ class SlotFinder {
         endDate: LocalDate,
         dayPreference: DayPreference,
         zoneId: ZoneId,
+        now: Instant = Instant.now(),
     ): List<TimeSlot> {
         val result = mutableListOf<TimeSlot>()
         val enabledAvailability = availability.filter { it.enabled }
@@ -28,10 +29,18 @@ class SlotFinder {
 
             val windowsForDay = enabledAvailability.filter { it.dayOfWeek == dayOfWeek }
             for (window in windowsForDay) {
-                val windowStart = currentDate.atTime(window.startTime)
+                var windowStart = currentDate.atTime(window.startTime)
                     .atZone(zoneId).toInstant()
                 val windowEnd = currentDate.atTime(window.endTime)
                     .atZone(zoneId).toInstant()
+
+                // Don't offer past time as available
+                if (windowStart < now) {
+                    windowStart = now
+                }
+                if (windowStart >= windowEnd) {
+                    continue
+                }
 
                 val freeSlots = subtractBusySlots(
                     windowStart, windowEnd, busySlots

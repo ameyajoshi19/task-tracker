@@ -57,6 +57,7 @@ class TaskSchedulerConflictTest {
             startDate = monday,
             endDate = monday,
             zoneId = zoneId,
+            now = now,
         )
         assertThat(result).isInstanceOf(SchedulingResult.NeedsReschedule::class.java)
         val reschedule = result as SchedulingResult.NeedsReschedule
@@ -87,6 +88,7 @@ class TaskSchedulerConflictTest {
             startDate = monday,
             endDate = monday,
             zoneId = zoneId,
+            now = now,
         )
         assertThat(result).isInstanceOf(SchedulingResult.Scheduled::class.java)
     }
@@ -113,6 +115,7 @@ class TaskSchedulerConflictTest {
             startDate = monday,
             endDate = monday,
             zoneId = zoneId,
+            now = now,
         )
         val reschedule = result as SchedulingResult.NeedsReschedule
         assertThat(reschedule.newBlocks.all { it.status == BlockStatus.PROPOSED }).isTrue()

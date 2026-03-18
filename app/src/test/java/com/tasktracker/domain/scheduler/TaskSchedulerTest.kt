@@ -14,6 +14,7 @@ class TaskSchedulerTest {
     )
     private val zoneId = ZoneId.of("America/New_York")
     private val monday = LocalDate.of(2026, 3, 16)
+    private val testNow = monday.atStartOfDay(zoneId).toInstant()
 
     private fun availability(
         day: DayOfWeek = DayOfWeek.MONDAY,
@@ -50,6 +51,7 @@ class TaskSchedulerTest {
             startDate = monday,
             endDate = monday,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(result).isInstanceOf(SchedulingResult.Scheduled::class.java)
         val blocks = (result as SchedulingResult.Scheduled).blocks
@@ -81,6 +83,7 @@ class TaskSchedulerTest {
             startDate = monday,
             endDate = monday,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(result).isInstanceOf(SchedulingResult.Scheduled::class.java)
         val blocks = (result as SchedulingResult.Scheduled).blocks
@@ -113,6 +116,7 @@ class TaskSchedulerTest {
             startDate = monday,
             endDate = monday,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(result).isInstanceOf(SchedulingResult.Scheduled::class.java)
         val blocks = (result as SchedulingResult.Scheduled).blocks
@@ -138,6 +142,7 @@ class TaskSchedulerTest {
             startDate = monday,
             endDate = monday,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(result).isInstanceOf(SchedulingResult.Scheduled::class.java)
         val blocks = (result as SchedulingResult.Scheduled).blocks
@@ -164,6 +169,7 @@ class TaskSchedulerTest {
             startDate = monday,
             endDate = tuesday,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(result).isInstanceOf(SchedulingResult.Scheduled::class.java)
         val blocks = (result as SchedulingResult.Scheduled).blocks
@@ -181,6 +187,7 @@ class TaskSchedulerTest {
             startDate = monday,
             endDate = monday,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(result).isInstanceOf(SchedulingResult.NoSlotsAvailable::class.java)
     }
@@ -203,6 +210,7 @@ class TaskSchedulerTest {
             startDate = monday,
             endDate = monday,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(result).isInstanceOf(SchedulingResult.DeadlineAtRisk::class.java)
     }
@@ -217,6 +225,7 @@ class TaskSchedulerTest {
             startDate = monday,
             endDate = monday,
             zoneId = zoneId,
+            now = testNow,
         )
         val blocks = (result as SchedulingResult.Scheduled).blocks
         assertThat(blocks.all { it.status == BlockStatus.CONFIRMED }).isTrue()
@@ -244,6 +253,7 @@ class TaskSchedulerTest {
             startDate = monday,
             endDate = monday,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(result).isInstanceOf(SchedulingResult.Scheduled::class.java)
         val blocks = (result as SchedulingResult.Scheduled).blocks
@@ -266,6 +276,7 @@ class TaskSchedulerTest {
             startDate = monday,
             endDate = saturday,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(result).isInstanceOf(SchedulingResult.Scheduled::class.java)
         val blocks = (result as SchedulingResult.Scheduled).blocks
@@ -291,6 +302,7 @@ class TaskSchedulerTest {
             startDate = monday,
             endDate = monday,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(result).isInstanceOf(SchedulingResult.NoSlotsAvailable::class.java)
         assertThat((result as SchedulingResult.NoSlotsAvailable).message)

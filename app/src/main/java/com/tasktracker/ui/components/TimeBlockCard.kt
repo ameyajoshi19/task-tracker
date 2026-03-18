@@ -24,6 +24,7 @@ fun TimeBlockCard(
     height: Dp,
     modifier: Modifier = Modifier,
     isTaskBlock: Boolean = false,
+    isCompleted: Boolean = false,
 ) {
     val formatter = DateTimeFormatter.ofPattern("h:mm a")
     val zoneId = ZoneId.systemDefault()
@@ -35,14 +36,14 @@ fun TimeBlockCard(
             .fillMaxWidth()
             .height(height)
             .clip(RoundedCornerShape(8.dp))
-            .background(color.copy(alpha = if (isTaskBlock) 0.3f else 0.15f))
+            .background(color.copy(alpha = if (isCompleted) 0.1f else if (isTaskBlock) 0.3f else 0.15f))
             .padding(8.dp),
     ) {
         Column {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium,
-                color = color,
+                color = color.copy(alpha = if (isCompleted) 0.5f else 1f),
             )
             Text(
                 text = "$startStr - $endStr",

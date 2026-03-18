@@ -13,6 +13,7 @@ class SlotFinderTest {
 
     // Monday 2026-03-16
     private val monday = LocalDate.of(2026, 3, 16)
+    private val testNow = monday.atStartOfDay(zoneId).toInstant()
 
     private fun availability(
         day: DayOfWeek = DayOfWeek.MONDAY,
@@ -43,6 +44,7 @@ class SlotFinderTest {
             endDate = monday,
             dayPreference = DayPreference.ANY,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(slots).hasSize(1)
         assertThat(slots[0].durationMinutes).isEqualTo(480) // 9am-5pm
@@ -57,6 +59,7 @@ class SlotFinderTest {
             endDate = monday,
             dayPreference = DayPreference.ANY,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(slots).hasSize(2)
         assertThat(slots[0].durationMinutes).isEqualTo(180) // 9-12
@@ -72,6 +75,7 @@ class SlotFinderTest {
             endDate = monday,
             dayPreference = DayPreference.ANY,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(slots).hasSize(1)
         assertThat(slots[0].durationMinutes).isEqualTo(360) // 11am-5pm
@@ -90,6 +94,7 @@ class SlotFinderTest {
             endDate = saturday,
             dayPreference = DayPreference.WEEKDAY,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(slots).hasSize(1) // Only Monday
     }
@@ -107,6 +112,7 @@ class SlotFinderTest {
             endDate = sunday,
             dayPreference = DayPreference.WEEKEND,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(slots).hasSize(1) // Only Sunday
     }
@@ -122,6 +128,7 @@ class SlotFinderTest {
             endDate = monday,
             dayPreference = DayPreference.ANY,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(slots).isEmpty()
     }
@@ -138,6 +145,7 @@ class SlotFinderTest {
             endDate = monday,
             dayPreference = DayPreference.ANY,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(slots).hasSize(3)
         assertThat(slots[0].durationMinutes).isEqualTo(60)  // 9-10
@@ -158,6 +166,7 @@ class SlotFinderTest {
             endDate = tuesday,
             dayPreference = DayPreference.ANY,
             zoneId = zoneId,
+            now = testNow,
         )
         assertThat(slots).hasSize(2)
         assertThat(slots[0].startTime).isLessThan(slots[1].startTime)

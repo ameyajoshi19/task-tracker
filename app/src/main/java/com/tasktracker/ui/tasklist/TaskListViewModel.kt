@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.tasktracker.data.calendar.CalendarSyncManager
 import com.tasktracker.domain.model.Quadrant
 import com.tasktracker.domain.model.Task
+import com.tasktracker.domain.model.BlockStatus
 import com.tasktracker.domain.model.TaskStatus
+import com.tasktracker.domain.repository.ScheduledBlockRepository
 import com.tasktracker.domain.repository.TaskRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -20,6 +22,7 @@ data class TaskListUiState(
 @HiltViewModel
 class TaskListViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
+    private val blockRepository: ScheduledBlockRepository,
     private val syncManager: CalendarSyncManager,
 ) : ViewModel() {
 
@@ -39,6 +42,10 @@ class TaskListViewModel @Inject constructor(
     fun completeTask(task: Task) {
         viewModelScope.launch {
             taskRepository.updateStatus(task.id, TaskStatus.COMPLETED)
+            val blocks = blockRepository.getByTaskId(task.id)
+            for (block in blocks) {
+                blockRepository.updateStatus(block.id, BlockStatus.COMPLETED)
+            }
             syncManager.markTaskCompleted(task.id)
         }
     }

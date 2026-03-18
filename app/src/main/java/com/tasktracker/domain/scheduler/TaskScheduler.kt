@@ -21,6 +21,7 @@ class TaskScheduler(
         startDate: LocalDate,
         endDate: LocalDate,
         zoneId: ZoneId,
+        now: Instant = Instant.now(),
     ): SchedulingResult {
         if (tasks.isEmpty()) {
             return SchedulingResult.Scheduled(emptyList())
@@ -55,6 +56,7 @@ class TaskScheduler(
             endDate = endDate,
             dayPreference = DayPreference.ANY,
             zoneId = zoneId,
+            now = now,
         ).toMutableList()
 
         // Slot-centric best-fit: iterate over slots, fill each with best-fitting task
@@ -189,6 +191,7 @@ class TaskScheduler(
             startDate = startDate,
             endDate = endDate,
             zoneId = zoneId,
+            now = now,
         )
         if (directResult is SchedulingResult.Scheduled && directResult.blocks.isNotEmpty()) {
             // Check deadline pressure — should we try to get an earlier slot?
@@ -233,6 +236,7 @@ class TaskScheduler(
                 startDate = startDate,
                 endDate = endDate,
                 zoneId = zoneId,
+                now = now,
             )
 
             // Abandon if reshuffle failed (displaced tasks lost their slots/deadlines)
@@ -302,6 +306,7 @@ class TaskScheduler(
             startDate = startDate,
             endDate = endDate,
             zoneId = zoneId,
+            now = now,
         )
 
         return when (rescheduleResult) {

@@ -2,6 +2,7 @@ package com.tasktracker.ui.schedule
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tasktracker.data.preferences.AppPreferences
 import com.tasktracker.domain.model.*
 import com.tasktracker.domain.repository.*
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,6 +19,7 @@ data class ScheduleItem(
     val taskId: Long? = null,
     val blockId: Long? = null,
     val quadrant: Quadrant? = null,
+    val isCompleted: Boolean = false,
 )
 
 data class ScheduleUiState(
@@ -35,6 +37,7 @@ class ScheduleViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
     private val calendarRepository: CalendarRepository,
     private val calendarSelectionRepository: CalendarSelectionRepository,
+    private val appPreferences: AppPreferences,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ScheduleUiState())
@@ -90,22 +93,32 @@ class ScheduleViewModel @Inject constructor(
 
             for (block in blocks) {
                 val task = taskRepository.getById(block.taskId)
+                val isCompleted = task?.status == TaskStatus.COMPLETED
+                val title = if (isCompleted) {
+                    "Completed: ${task?.title ?: "Task"}"
+                } else {
+                    task?.title ?: "Task"
+                }
                 items.add(
                     ScheduleItem(
-                        title = task?.title ?: "Task",
+                        title = title,
                         startTime = block.startTime,
                         endTime = block.endTime,
                         isTaskBlock = true,
                         taskId = block.taskId,
                         blockId = block.id,
                         quadrant = task?.quadrant,
+                        isCompleted = isCompleted,
                     )
                 )
             }
 
             try {
                 val enabledCalendars = calendarSelectionRepository.getEnabled()
+                val taskCalendarId = appPreferences.taskCalendarId.first()
                 for (cal in enabledCalendars) {
+                    // Skip the task calendar — its events are already shown as task blocks
+                    if (cal.googleCalendarId == taskCalendarId) continue
                     val events = calendarRepository.getEvents(cal.googleCalendarId, start, end)
                     items.addAll(
                         events.map { event ->
