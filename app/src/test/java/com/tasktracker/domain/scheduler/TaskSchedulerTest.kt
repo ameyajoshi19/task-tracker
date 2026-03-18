@@ -308,4 +308,81 @@ class TaskSchedulerTest {
         assertThat((result as SchedulingResult.NoSlotsAvailable).message)
             .contains("splittable")
     }
+
+    @Test
+    fun `scheduleWithConflictResolution displaces lower-priority task when no slots available`() {
+        val tuesday = monday.plusDays(1)
+        val avail = availability(day = DayOfWeek.MONDAY, start = LocalTime.of(18, 0), end = LocalTime.of(20, 0))
+        val tuesdayAvail = availability(day = DayOfWeek.TUESDAY, start = LocalTime.of(18, 0), end = LocalTime.of(20, 0))
+
+        val existingTask = task(id = 1, duration = 120, quadrant = Quadrant.IMPORTANT)
+        val existingBlock = ScheduledBlock(
+            id = 1,
+            taskId = 1,
+            startTime = monday.atTime(18, 0).atZone(zoneId).toInstant(),
+            endTime = monday.atTime(20, 0).atZone(zoneId).toInstant(),
+            status = BlockStatus.CONFIRMED,
+        )
+
+        val deadlineTonight = monday.atTime(23, 59).atZone(zoneId).toInstant()
+        val newTask = task(id = 2, duration = 15, quadrant = Quadrant.URGENT_IMPORTANT, deadline = deadlineTonight)
+
+        val result = scheduler.scheduleWithConflictResolution(
+            newTask = newTask,
+            allTasks = listOf(existingTask, newTask),
+            existingBlocks = listOf(existingBlock),
+            availability = listOf(avail, tuesdayAvail),
+            busySlots = emptyList(),
+            startDate = monday,
+            endDate = monday.plusDays(7),
+            zoneId = zoneId,
+            now = testNow,
+        )
+
+        assertThat(result).isInstanceOf(SchedulingResult.NeedsReschedule::class.java)
+        val reschedule = result as SchedulingResult.NeedsReschedule
+        assertThat(reschedule.newBlocks).hasSize(1)
+        assertThat(reschedule.newBlocks[0].taskId).isEqualTo(2L)
+        val newBlockDay = reschedule.newBlocks[0].startTime.atZone(zoneId).toLocalDate()
+        assertThat(newBlockDay).isEqualTo(monday)
+        assertThat(reschedule.movedBlocks).hasSize(1)
+        assertThat(reschedule.movedBlocks[0].first.taskId).isEqualTo(1L)
+        assertThat(reschedule.movedBlocks[0].second.taskId).isEqualTo(1L)
+    }
+
+    @Test
+    fun `scheduleWithConflictResolution schedules new task even when displaced task loses its deadline`() {
+        val avail = availability(day = DayOfWeek.MONDAY, start = LocalTime.of(18, 0), end = LocalTime.of(20, 0))
+
+        val deadlineTonight = monday.atTime(23, 59).atZone(zoneId).toInstant()
+        val existingTask = task(id = 1, duration = 120, quadrant = Quadrant.IMPORTANT, deadline = deadlineTonight)
+        val existingBlock = ScheduledBlock(
+            id = 1,
+            taskId = 1,
+            startTime = monday.atTime(18, 0).atZone(zoneId).toInstant(),
+            endTime = monday.atTime(20, 0).atZone(zoneId).toInstant(),
+            status = BlockStatus.CONFIRMED,
+        )
+
+        val newTask = task(id = 2, duration = 15, quadrant = Quadrant.URGENT_IMPORTANT, deadline = deadlineTonight)
+
+        val result = scheduler.scheduleWithConflictResolution(
+            newTask = newTask,
+            allTasks = listOf(existingTask, newTask),
+            existingBlocks = listOf(existingBlock),
+            availability = listOf(avail),
+            busySlots = emptyList(),
+            startDate = monday,
+            endDate = monday,
+            zoneId = zoneId,
+            now = testNow,
+        )
+
+        assertThat(result).isInstanceOf(SchedulingResult.NeedsReschedule::class.java)
+        val reschedule = result as SchedulingResult.NeedsReschedule
+        assertThat(reschedule.newBlocks).hasSize(1)
+        assertThat(reschedule.newBlocks[0].taskId).isEqualTo(2L)
+        assertThat(reschedule.displacedTasks).hasSize(1)
+        assertThat(reschedule.displacedTasks[0].id).isEqualTo(1L)
+    }
 }

@@ -119,7 +119,8 @@ class TaskScheduler(
             }
 
             val actualDuration = Duration.between(blockStart, blockEnd).toMinutes()
-            if (actualDuration < MIN_SPLIT_BLOCK_MINUTES) continue
+            if (actualDuration < MIN_SPLIT_BLOCK_MINUTES && bestFit.splittable) continue
+            if (actualDuration <= 0) continue
 
             resultBlocks.add(
                 ScheduledBlock(
@@ -306,14 +307,10 @@ class TaskScheduler(
             }
         }
 
-        // Re-run scheduler with lower-priority blocks removed
+        // Step 1: Schedule the new task alone with lower-priority blocks removed
         val remainingBlocks = existingBlocks - lowerPriorityBlocks.toSet()
-        val tasksToReschedule = allTasks.filter { task ->
-            task.id == newTask.id || lowerPriorityBlocks.any { it.taskId == task.id }
-        }
-
-        val rescheduleResult = schedule(
-            tasks = tasksToReschedule,
+        val newTaskResult = schedule(
+            tasks = listOf(newTask),
             existingBlocks = remainingBlocks,
             availability = availability,
             busySlots = busySlots,
@@ -323,23 +320,59 @@ class TaskScheduler(
             now = now,
         )
 
-        return when (rescheduleResult) {
+        if (newTaskResult !is SchedulingResult.Scheduled || newTaskResult.blocks.isEmpty()) {
+            return if (newTask.deadline != null) {
+                SchedulingResult.DeadlineAtRisk(newTask, "Cannot schedule \"${newTask.title}\" before its deadline.")
+            } else {
+                SchedulingResult.NoSlotsAvailable(newTask, "No slots available for \"${newTask.title}\".")
+            }
+        }
+
+        // Step 2: Reschedule displaced tasks around the new task's blocks
+        val newTaskBlocks = newTaskResult.blocks
+        val blocksForDisplaced = remainingBlocks + newTaskBlocks.map {
+            it.copy(status = BlockStatus.CONFIRMED)
+        }
+        val displacedTaskIds = lowerPriorityBlocks.map { it.taskId }.toSet()
+        val displacedTasks = allTasks.filter { it.id in displacedTaskIds }
+
+        val displacedResult = schedule(
+            tasks = displacedTasks,
+            existingBlocks = blocksForDisplaced,
+            availability = availability,
+            busySlots = busySlots,
+            startDate = startDate,
+            endDate = endDate,
+            zoneId = zoneId,
+            now = now,
+        )
+
+        // Build result: new task always gets scheduled; displaced tasks may or may not
+        val proposedNewBlocks = newTaskBlocks.map { it.copy(status = BlockStatus.PROPOSED) }
+        val movedPairs: List<Pair<ScheduledBlock, ScheduledBlock>>
+        val unscheduledDisplaced: List<Task>
+
+        when (displacedResult) {
             is SchedulingResult.Scheduled -> {
-                val proposedBlocks = rescheduleResult.blocks.map {
-                    it.copy(status = BlockStatus.PROPOSED)
-                }
-                val movedPairs = lowerPriorityBlocks.mapNotNull { oldBlock ->
-                    val newBlock = proposedBlocks.find { it.taskId == oldBlock.taskId }
+                val displacedBlocks = displacedResult.blocks.map { it.copy(status = BlockStatus.PROPOSED) }
+                movedPairs = lowerPriorityBlocks.mapNotNull { oldBlock ->
+                    val newBlock = displacedBlocks.find { it.taskId == oldBlock.taskId }
                     if (newBlock != null) oldBlock to newBlock else null
                 }
-                val newTaskBlocks = proposedBlocks.filter { it.taskId == newTask.id }
-                SchedulingResult.NeedsReschedule(
-                    newBlocks = newTaskBlocks,
-                    movedBlocks = movedPairs,
-                )
+                val rescheduledIds = displacedBlocks.map { it.taskId }.toSet()
+                unscheduledDisplaced = displacedTasks.filter { it.id !in rescheduledIds }
             }
-            else -> rescheduleResult
+            else -> {
+                movedPairs = emptyList()
+                unscheduledDisplaced = displacedTasks
+            }
         }
+
+        return SchedulingResult.NeedsReschedule(
+            newBlocks = proposedNewBlocks,
+            movedBlocks = movedPairs,
+            displacedTasks = unscheduledDisplaced,
+        )
     }
 
     /**

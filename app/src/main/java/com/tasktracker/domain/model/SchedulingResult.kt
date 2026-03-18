@@ -8,6 +8,7 @@ sealed class SchedulingResult {
     data class NeedsReschedule(
         val newBlocks: List<ScheduledBlock>,
         val movedBlocks: List<Pair<ScheduledBlock, ScheduledBlock>>,
+        val displacedTasks: List<Task> = emptyList(),
     ) : SchedulingResult()
 
     data class DeadlineAtRisk(
