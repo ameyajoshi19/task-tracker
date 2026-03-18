@@ -6,8 +6,24 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CalendarSelectionDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(selection: CalendarSelectionEntity): Long
+
+    @Query("""
+        UPDATE calendar_selections
+        SET calendarName = :calendarName, calendarColor = :calendarColor, enabled = :enabled
+        WHERE googleCalendarId = :googleCalendarId
+    """)
+    suspend fun updateByGoogleId(googleCalendarId: String, calendarName: String, calendarColor: String, enabled: Boolean)
+
+    @Transaction
+    suspend fun upsert(selection: CalendarSelectionEntity): Long {
+        val id = insert(selection)
+        if (id == -1L) {
+            updateByGoogleId(selection.googleCalendarId, selection.calendarName, selection.calendarColor, selection.enabled)
+        }
+        return id
+    }
 
     @Update
     suspend fun update(selection: CalendarSelectionEntity)

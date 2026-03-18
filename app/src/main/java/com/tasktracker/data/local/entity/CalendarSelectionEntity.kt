@@ -1,10 +1,14 @@
 package com.tasktracker.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.tasktracker.domain.model.CalendarSelection
 
-@Entity(tableName = "calendar_selections")
+@Entity(
+    tableName = "calendar_selections",
+    indices = [Index(value = ["googleCalendarId"], unique = true)],
+)
 data class CalendarSelectionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val googleCalendarId: String,

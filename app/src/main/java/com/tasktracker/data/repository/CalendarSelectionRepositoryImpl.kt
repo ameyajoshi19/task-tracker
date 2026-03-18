@@ -13,7 +13,7 @@ class CalendarSelectionRepositoryImpl @Inject constructor(
 ) : CalendarSelectionRepository {
 
     override suspend fun insert(selection: CalendarSelection): Long =
-        dao.insert(CalendarSelectionEntity.fromDomain(selection))
+        dao.upsert(CalendarSelectionEntity.fromDomain(selection))
 
     override suspend fun update(selection: CalendarSelection) =
         dao.update(CalendarSelectionEntity.fromDomain(selection))

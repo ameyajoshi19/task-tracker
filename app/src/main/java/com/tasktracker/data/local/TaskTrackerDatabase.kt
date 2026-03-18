@@ -15,7 +15,7 @@ import com.tasktracker.data.local.entity.*
         CalendarSelectionEntity::class,
         PendingSyncOperationEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -39,6 +39,22 @@ abstract class TaskTrackerDatabase : RoomDatabase() {
                         eventId TEXT,
                         createdAt INTEGER NOT NULL
                     )
+                """.trimIndent())
+            }
+        }
+
+        val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Remove duplicate calendar selections, keeping the one with the lowest id
+                db.execSQL("""
+                    DELETE FROM calendar_selections WHERE id NOT IN (
+                        SELECT MIN(id) FROM calendar_selections GROUP BY googleCalendarId
+                    )
+                """.trimIndent())
+                // Add unique index on googleCalendarId
+                db.execSQL("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS index_calendar_selections_googleCalendarId
+                    ON calendar_selections (googleCalendarId)
                 """.trimIndent())
             }
         }

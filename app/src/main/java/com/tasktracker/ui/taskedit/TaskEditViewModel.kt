@@ -224,10 +224,20 @@ class TaskEditViewModel @Inject constructor(
                     // Only remap newBlocks to saved ID; movedBlocks keep their original taskId
                     val newBlocks = result.newBlocks.map { it.copy(taskId = savedId) }
                     val movedBlocks = result.movedBlocks.map { it.second }
-                    blockRepository.insertAll(newBlocks + movedBlocks)
-                    _uiState.update {
-                        it.copy(schedulingResult = result, isSaving = false)
+                    val allBlocks = newBlocks + movedBlocks
+                    val insertedIds = blockRepository.insertAll(allBlocks)
+                    taskRepository.updateStatus(savedId, TaskStatus.SCHEDULED)
+                    // Push new blocks to calendar
+                    allBlocks.zip(insertedIds).forEach { (block, id) ->
+                        syncManager.pushNewBlock(block.copy(id = id))
                     }
+                    // Delete old calendar events for moved tasks
+                    for ((oldBlock, _) in result.movedBlocks) {
+                        oldBlock.googleCalendarEventId?.let {
+                            syncManager.deleteTaskEvents(oldBlock.taskId)
+                        }
+                    }
+                    _uiState.update { it.copy(savedSuccessfully = true, isSaving = false) }
                 }
                 else -> {
                     // Scheduling failed — do NOT persist

@@ -34,9 +34,9 @@ class SlotFinder {
                 val windowEnd = currentDate.atTime(window.endTime)
                     .atZone(zoneId).toInstant()
 
-                // Don't offer past time as available
+                // Don't offer past time as available; snap to next clean boundary
                 if (windowStart < now) {
-                    windowStart = now
+                    windowStart = snapUpToCleanBoundary(now, zoneId)
                 }
                 if (windowStart >= windowEnd) {
                     continue
@@ -94,6 +94,25 @@ class SlotFinder {
         }
 
         return freeSlots
+    }
+
+    /**
+     * Snaps an instant forward to the next 15-minute boundary (:00, :15, :30, :45).
+     * If already on a boundary, returns as-is (with seconds/nanos zeroed).
+     */
+    private fun snapUpToCleanBoundary(instant: Instant, zoneId: ZoneId): Instant {
+        val zoned = instant.atZone(zoneId)
+        val minute = zoned.minute
+        val second = zoned.second
+        val nano = zoned.nano
+        val nextBoundary = ((minute + 14) / 15) * 15  // ceiling to next 15-min mark
+        return if (minute % 15 == 0 && second == 0 && nano == 0) {
+            zoned.withSecond(0).withNano(0).toInstant()
+        } else if (nextBoundary < 60) {
+            zoned.withMinute(nextBoundary).withSecond(0).withNano(0).toInstant()
+        } else {
+            zoned.plusHours(1).withMinute(0).withSecond(0).withNano(0).toInstant()
+        }
     }
 
     private fun maxOf(a: Instant, b: Instant): Instant = if (a > b) a else b

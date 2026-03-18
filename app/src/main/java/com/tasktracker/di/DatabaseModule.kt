@@ -23,7 +23,7 @@ object DatabaseModule {
             TaskTrackerDatabase::class.java,
             "task_tracker.db",
         )
-        .addMigrations(TaskTrackerDatabase.MIGRATION_1_2)
+        .addMigrations(TaskTrackerDatabase.MIGRATION_1_2, TaskTrackerDatabase.MIGRATION_2_3)
         .build()
 
     @Provides
