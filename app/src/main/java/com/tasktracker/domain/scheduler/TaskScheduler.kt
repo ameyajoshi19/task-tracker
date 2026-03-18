@@ -99,24 +99,32 @@ class TaskScheduler(
                 blockDuration = remaining.toLong()
             }
 
+            // Snap to clean time boundary
+            val blockStart = snapToCleanBoundary(
+                slotStart = slot.startTime,
+                slotEnd = slot.endTime,
+                blockDuration = blockDuration,
+                zoneId = zoneId,
+            )
+
             // For deadline tasks, clamp end time
-            var blockEnd = slot.startTime.plus(blockDuration, ChronoUnit.MINUTES)
+            var blockEnd = blockStart.plus(blockDuration, ChronoUnit.MINUTES)
             if (bestFit.deadline != null && blockEnd > bestFit.deadline) {
-                val available = Duration.between(slot.startTime, bestFit.deadline).toMinutes()
+                val available = Duration.between(blockStart, bestFit.deadline).toMinutes()
                 if (available < MIN_SPLIT_BLOCK_MINUTES && bestFit.splittable) continue
                 if (available < remaining && !bestFit.splittable) continue
-                blockEnd = slot.startTime.plus(
+                blockEnd = blockStart.plus(
                     minOf(available, blockDuration), ChronoUnit.MINUTES
                 )
             }
 
-            val actualDuration = Duration.between(slot.startTime, blockEnd).toMinutes()
+            val actualDuration = Duration.between(blockStart, blockEnd).toMinutes()
             if (actualDuration < MIN_SPLIT_BLOCK_MINUTES) continue
 
             resultBlocks.add(
                 ScheduledBlock(
                     taskId = bestFit.id,
-                    startTime = slot.startTime,
+                    startTime = blockStart,
                     endTime = blockEnd,
                     status = BlockStatus.CONFIRMED,
                 )
@@ -127,11 +135,17 @@ class TaskScheduler(
                 scheduledTaskIds.add(bestFit.id)
             }
 
-            // If slot has remaining time, add it back
+            // If slot has remaining time before and after block, add them back
+            if (blockStart > slot.startTime) {
+                val beforeSlot = TimeSlot(slot.startTime, blockStart)
+                if (beforeSlot.durationMinutes >= MIN_SPLIT_BLOCK_MINUTES) {
+                    slotsToProcess.add(0, beforeSlot)
+                }
+            }
             if (blockEnd < slot.endTime) {
-                val remainingSlot = TimeSlot(blockEnd, slot.endTime)
-                if (remainingSlot.durationMinutes >= MIN_SPLIT_BLOCK_MINUTES) {
-                    slotsToProcess.add(0, remainingSlot)
+                val afterSlot = TimeSlot(blockEnd, slot.endTime)
+                if (afterSlot.durationMinutes >= MIN_SPLIT_BLOCK_MINUTES) {
+                    slotsToProcess.add(0, afterSlot)
                 }
             }
         }
@@ -326,6 +340,34 @@ class TaskScheduler(
             }
             else -> rescheduleResult
         }
+    }
+
+    /**
+     * Snap a block start time to the nearest clean boundary within a slot.
+     * Preference order: :00, :30, :15, :45, then original start.
+     */
+    private fun snapToCleanBoundary(
+        slotStart: Instant,
+        slotEnd: Instant,
+        blockDuration: Long,
+        zoneId: ZoneId,
+    ): Instant {
+        val boundaries = listOf(0, 30, 15, 45)
+        val startZoned = slotStart.atZone(zoneId)
+        val currentMinute = startZoned.minute
+
+        for (target in boundaries) {
+            // Find the next occurrence of this minute mark >= slotStart
+            val candidate = if (currentMinute <= target) {
+                startZoned.withMinute(target).withSecond(0).withNano(0).toInstant()
+            } else {
+                startZoned.plusHours(1).withMinute(target).withSecond(0).withNano(0).toInstant()
+            }
+            if (candidate >= slotStart && candidate.plus(blockDuration, ChronoUnit.MINUTES) <= slotEnd) {
+                return candidate
+            }
+        }
+        return slotStart
     }
 
     private fun matchesDayPreference(
