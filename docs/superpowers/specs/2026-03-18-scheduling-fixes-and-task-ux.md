@@ -20,26 +20,36 @@ User availability: 6-8 PM weekdays, 9 AM-5 PM weekends. When a 2h Important task
 
 ### Problem
 
-`scheduleWithConflictResolution` calculates deadline pressure as `duration / minutesUntilDeadline`. For a 15m task with hours remaining, this ratio is far below the 0.25 threshold, so the displacement path is never triggered. The scheduler only looks for free slots, finds none (the window is full), and returns `DeadlineAtRisk`.
+When the 6-8 PM weekday window is fully occupied by a 2h Important task and a 15m Urgent & Important task with a same-day deadline is created, the scheduler returns `DeadlineAtRisk` instead of displacing the lower-priority task.
+
+**Code trace through `scheduleWithConflictResolution`:**
+
+1. **Line 200-209:** `schedule(tasks = listOf(newTask), existingBlocks = existingBlocks)` — the 2h block is in `existingBlocks`, added to `allBusySlots` (line 44-46), making 6-8 PM appear fully occupied. Returns `DeadlineAtRisk`.
+2. **Line 210:** `directResult` is NOT `Scheduled`, falls through to displacement path (line 293).
+3. **Line 293-299:** Correctly finds the 2h Important block as lower-priority. `lowerPriorityBlocks` is non-empty.
+4. **Line 310-323:** Re-runs `schedule()` with the lower-priority block removed. Now both tasks compete for slots: the 15m task gets 6:00-6:15 PM, but the 2h task needs 120 min and only 105 min remain (6:15-8:00). It moves to the next available day.
+5. **The bug:** If the displaced 2h task has a deadline that can't be met after displacement, `schedule()` at line 315 returns `DeadlineAtRisk` for the *displaced* task (line 154-163), and this propagates as the final result (line 341: `else -> rescheduleResult`). The new high-priority task is collateral damage — it never gets scheduled even though it could fit.
+
+Additionally, if the displaced task has no deadline but can't fit in remaining same-day time, `schedule()` returns `Scheduled` with blocks only for the new task (the displaced task silently drops). The `movedPairs` in `NeedsReschedule` ends up empty because no new block matches the displaced task's ID.
 
 ### Solution
 
-Change the displacement trigger in `scheduleWithConflictResolution`:
+Fix the displacement path in `scheduleWithConflictResolution`:
 
-- **Current logic:** Only attempt displacement when `deadlinePressure >= 0.25`
-- **New logic:** Also attempt displacement when **no free slots exist** for the new task and there are lower-priority confirmed blocks in the feasible scheduling window
-- When displacing: remove the lowest-priority block(s) overlapping the new task's window, schedule the new task first, then re-run scheduling for displaced tasks
-- If a displaced task no longer fits in remaining availability (e.g., the 2h task can't fit in 1h45m remaining), move it to the next available day or split if splittable
-- Return `NeedsReschedule` with details of what moved so the user is informed
+1. **Always schedule the new task first** — when displacing, run `schedule(tasks = listOf(newTask), ...)` against the freed-up slots to guarantee it gets placed
+2. **Then reschedule displaced tasks separately** — run `schedule(tasks = displacedTasks, existingBlocks = remainingBlocks + newTaskBlocks, ...)` so the new task's blocks are treated as occupied
+3. **Handle partial displacement gracefully** — if a displaced task can't be rescheduled within the window, still return `NeedsReschedule` with the new task's blocks and the displaced task marked as needing attention (rather than failing the entire operation)
+4. **Ensure `movedPairs` is always populated** — for displaced tasks that move to a new slot, include the old→new block mapping; for displaced tasks that can't fit, include them with a null new block so the UI can show "moved to backlog" or similar
 
 ### Expected Result (example scenario)
 
 - "Follow up with lawyers" (15m, Urgent & Important) → 6:00-6:15 PM today
-- "Upload tax documents" (2h, Important) → moved to next available slot, user sees what moved
+- "Upload tax documents" (2h, Important) → moved to next available slot (e.g., tomorrow 6-8 PM), user sees what moved via `NeedsReschedule`
 
 ### Files to Modify
 
-- `domain/scheduler/TaskScheduler.kt` — `scheduleWithConflictResolution()` displacement trigger logic
+- `domain/scheduler/TaskScheduler.kt` — fix displacement path in `scheduleWithConflictResolution()`
+- `domain/scheduler/TaskSchedulerTest.kt` — add/update tests for displacement scenarios
 
 ---
 
@@ -54,17 +64,21 @@ Change the displacement trigger in `scheduleWithConflictResolution`:
 Restructure the save flow to schedule-before-persist:
 
 1. **Validate** — title, duration, availability constraints (existing logic)
-2. **Build task in memory** — create `Task` object with temporary ID (0), do not insert
+2. **Build task in memory** — create `Task` object with temporary ID (0) and PENDING status, do not insert
 3. **Gather scheduling inputs** — fetch existing tasks, blocks, free/busy slots, availability (existing logic)
-4. **Run scheduler** — call `scheduleWithConflictResolution` with the in-memory task included in the task list
+4. **Run scheduler** — call `scheduleWithConflictResolution` with the in-memory task. The scheduler filters on PENDING/SCHEDULED status, so the in-memory task must have PENDING status.
 5. **Check result:**
    - `Scheduled` or `NeedsReschedule`: insert task into DB (get real ID), remap block task IDs, insert blocks, push to calendar, navigate away
    - `DeadlineAtRisk` or `NoSlotsAvailable`: show error, persist nothing
 6. **For edits:** only delete old blocks/events and update the task if rescheduling succeeds
 
+**Fix NeedsReschedule block mapping bug:** The current code at line 227-230 maps ALL blocks (including moved blocks for other tasks) to the new task's ID via `.map { it.copy(taskId = savedId) }`. This corrupts displaced task data. Fix: only remap `newBlocks` to the saved ID; preserve original `taskId` values for `movedBlocks`.
+
+**Transaction safety:** Wrap the DB insert + block insert in a Room `@Transaction`. If the calendar push fails after local persist, keep the local data (schedule is valid) and let `CalendarSyncManager` retry via its offline queue — do not roll back.
+
 ### Files to Modify
 
-- `ui/taskedit/TaskEditViewModel.kt` — restructure `save()` flow
+- `ui/taskedit/TaskEditViewModel.kt` — restructure `save()` flow, fix block ID mapping
 
 ---
 
@@ -76,7 +90,7 @@ Restructure the save flow to schedule-before-persist:
 - On swipe completion: show confirmation dialog — "Delete '[task title]'? This will also remove the calendar event."
 - On confirm: `syncManager.deleteTaskEvents()` then `taskRepository.delete()` (existing `TaskListViewModel.deleteTask()` flow)
 - On cancel: card snaps back to original position
-- Only enabled for non-completed tasks
+- Enabled for all tasks (including completed tasks, so they retain a delete affordance)
 
 ### Files to Modify
 
@@ -90,14 +104,12 @@ Restructure the save flow to schedule-before-persist:
 ### Behavior
 
 - Swipe task card **right** to reveal purple/brand background with calendar-refresh icon
-- On swipe completion, trigger rescheduling:
+- On swipe completion, trigger rescheduling (schedule-before-delete to avoid rollback complexity):
   1. Fetch task's current `ScheduledBlock`(s)
-  2. Record their time ranges as additional "busy" slots (preventing same-slot reassignment)
-  3. Delete existing blocks and calendar events
-  4. Set task status to PENDING
-  5. Run `scheduleWithConflictResolution` with the additional blocked slots
-  6. On success: insert new blocks, push to calendar, update status to SCHEDULED
-  7. On failure: show snackbar error, restore original blocks (rollback)
+  2. Record their time ranges as additional entries in the `busySlots` parameter (not `existingBlocks`) to prevent same-slot reassignment
+  3. Run `scheduleWithConflictResolution` with the task (status reset to PENDING in memory) and the additional busy slots
+  4. On success: delete old blocks and calendar events, insert new blocks, push to calendar, update status to SCHEDULED
+  5. On failure: show snackbar error, original blocks remain untouched (no rollback needed)
 - Show brief loading indicator during rescheduling
 - Only enabled for SCHEDULED tasks
 
@@ -136,12 +148,26 @@ data class TaskWithNextBlock(
 )
 ```
 
-Or a simpler `@Query` returning a flat DTO with the earliest block's start/end time. The ViewModel observes this instead of plain tasks.
+Use a flat `@Query` with a DTO (avoids N+1 query issues that `@Relation` can cause with large task lists):
+
+```kotlin
+@Query("""
+    SELECT t.*, sb.startTime AS nextBlockStart, sb.endTime AS nextBlockEnd
+    FROM tasks t
+    LEFT JOIN scheduled_blocks sb ON sb.taskId = t.id AND sb.status = 'CONFIRMED'
+    ORDER BY t.id, sb.startTime ASC
+""")
+fun observeAllWithNextBlock(): Flow<List<TaskWithBlockDto>>
+```
+
+No schema migration needed — this is a read-only query over existing tables.
 
 ### Files to Modify
 
-- `data/local/dao/TaskDao.kt` — new query joining tasks with blocks
-- `data/local/entity/` — new `TaskWithNextBlock` data class (or DTO)
+- `data/local/dao/TaskDao.kt` — new joined query
+- `data/local/entity/TaskWithBlockDto.kt` — new flat DTO
+- `domain/repository/TaskRepository.kt` — new method returning tasks with block info
+- `data/repository/TaskRepositoryImpl.kt` — implement the joined query mapping
 - `ui/tasklist/TaskListViewModel.kt` — observe joined data
 - `ui/components/TaskCard.kt` — render scheduled time and deadline
 - `ui/tasklist/TaskListScreen.kt` — pass new data to TaskCard
