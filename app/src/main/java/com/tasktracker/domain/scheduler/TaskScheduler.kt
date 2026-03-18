@@ -10,6 +10,7 @@ class TaskScheduler(
 ) {
     companion object {
         private const val MIN_SPLIT_BLOCK_MINUTES = 30L
+        private const val DEADLINE_PRESSURE_THRESHOLD = 0.25
     }
 
     fun schedule(
@@ -190,7 +191,85 @@ class TaskScheduler(
             zoneId = zoneId,
         )
         if (directResult is SchedulingResult.Scheduled && directResult.blocks.isNotEmpty()) {
-            return directResult
+            // Check deadline pressure — should we try to get an earlier slot?
+            val deadline = newTask.deadline
+            if (deadline == null) {
+                return directResult
+            }
+
+            val minutesUntilDeadline = Duration.between(now, deadline).toMinutes()
+            val pressure = if (minutesUntilDeadline <= 0) {
+                1.0
+            } else {
+                newTask.estimatedDurationMinutes.toDouble() / minutesUntilDeadline
+            }
+
+            if (pressure < DEADLINE_PRESSURE_THRESHOLD) {
+                return directResult
+            }
+
+            // Pressure is high — try reshuffling lower-priority tasks for an earlier slot
+            val lowerPriorityBlocksForPressure = existingBlocks.filter { block ->
+                val blockTask = allTasks.find { it.id == block.taskId }
+                blockTask != null &&
+                    block.status == BlockStatus.CONFIRMED &&
+                    priorityComparator.compare(newTask, blockTask) < 0
+            }
+
+            if (lowerPriorityBlocksForPressure.isEmpty()) {
+                return directResult
+            }
+
+            val remainingBlocksForPressure = existingBlocks - lowerPriorityBlocksForPressure.toSet()
+            val tasksToRescheduleForPressure = allTasks.filter { task ->
+                task.id == newTask.id || lowerPriorityBlocksForPressure.any { it.taskId == task.id }
+            }
+
+            val pressureRescheduleResult = schedule(
+                tasks = tasksToRescheduleForPressure,
+                existingBlocks = remainingBlocksForPressure,
+                availability = availability,
+                busySlots = busySlots,
+                startDate = startDate,
+                endDate = endDate,
+                zoneId = zoneId,
+            )
+
+            // Abandon if reshuffle failed (displaced tasks lost their slots/deadlines)
+            if (pressureRescheduleResult !is SchedulingResult.Scheduled) {
+                return directResult
+            }
+
+            // Compare earliest start time for the new task
+            val directEarliest = directResult.blocks
+                .filter { it.taskId == newTask.id }
+                .minOf { it.startTime }
+            val reshuffleNewTaskBlocks = pressureRescheduleResult.blocks
+                .filter { it.taskId == newTask.id }
+            if (reshuffleNewTaskBlocks.isEmpty()) {
+                return directResult
+            }
+            val reshuffleEarliest = reshuffleNewTaskBlocks.minOf { it.startTime }
+
+            // Only propose reshuffle if it actually gives an earlier start
+            if (reshuffleEarliest >= directEarliest) {
+                return directResult
+            }
+
+            // Build NeedsReschedule with proposed blocks
+            val proposedBlocks = pressureRescheduleResult.blocks.map {
+                it.copy(status = BlockStatus.PROPOSED)
+            }
+            val movedPairs = lowerPriorityBlocksForPressure.mapNotNull { oldBlock ->
+                val newBlock = proposedBlocks.find { it.taskId == oldBlock.taskId }
+                if (newBlock != null) oldBlock to newBlock else null
+            }
+            val newTaskBlocks = proposedBlocks.filter { it.taskId == newTask.id }
+
+            return SchedulingResult.NeedsReschedule(
+                newBlocks = newTaskBlocks,
+                movedBlocks = movedPairs,
+            )
         }
 
         // Can't fit — try displacing lower-priority tasks
