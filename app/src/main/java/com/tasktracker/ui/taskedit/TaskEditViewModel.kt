@@ -32,6 +32,10 @@ data class TaskEditUiState(
     val savedSuccessfully: Boolean = false,
     val schedulingResult: SchedulingResult? = null,
     val staleDataWarning: Boolean = false,
+    val suggestedDurationMinutes: Int? = null,
+    val suggestedDurationKeyword: String? = null,
+    val suggestedQuadrant: Quadrant? = null,
+    val suggestedQuadrantReason: String? = null,
 )
 
 @HiltViewModel
@@ -76,11 +80,51 @@ class TaskEditViewModel @Inject constructor(
         }
     }
 
-    fun updateTitle(title: String) { _uiState.update { it.copy(title = title, validationError = null) } }
+    fun updateTitle(title: String) {
+        val suggestion = com.tasktracker.ui.components.suggestDuration(title)
+        val keyword = if (suggestion != null) {
+            title.lowercase().split(" ").firstOrNull { word ->
+                com.tasktracker.ui.components.suggestDuration(word) != null
+            }
+        } else null
+        _uiState.update {
+            it.copy(
+                title = title,
+                validationError = null,
+                suggestedDurationMinutes = suggestion,
+                suggestedDurationKeyword = keyword,
+            )
+        }
+    }
     fun updateDescription(desc: String) { _uiState.update { it.copy(description = desc) } }
     fun updateDuration(minutes: Int) { _uiState.update { it.copy(durationMinutes = minutes, validationError = null) } }
     fun updateQuadrant(q: Quadrant) { _uiState.update { it.copy(quadrant = q) } }
-    fun updateDeadline(deadline: Instant?) { _uiState.update { it.copy(deadline = deadline) } }
+    fun updateDeadline(deadline: Instant?) {
+        val suggested = deadline?.let {
+            com.tasktracker.ui.components.suggestQuadrant(it, Instant.now())
+        }
+        val reason = deadline?.let {
+            val hoursUntil = java.time.temporal.ChronoUnit.HOURS.between(Instant.now(), it)
+            when {
+                hoursUntil <= 24 -> "deadline is today"
+                hoursUntil <= 72 -> "deadline in ${hoursUntil / 24 + 1} days"
+                hoursUntil <= 168 -> "deadline this week"
+                else -> null
+            }
+        }
+        _uiState.update {
+            var newState = it.copy(
+                deadline = deadline,
+                suggestedQuadrant = suggested,
+                suggestedQuadrantReason = reason,
+            )
+            // Auto-select suggested quadrant if user hasn't manually changed it
+            if (suggested != null && it.quadrant == it.suggestedQuadrant ?: Quadrant.IMPORTANT) {
+                newState = newState.copy(quadrant = suggested)
+            }
+            newState
+        }
+    }
     fun updateDayPreference(pref: DayPreference) { _uiState.update { it.copy(dayPreference = pref) } }
     fun updateSplittable(splittable: Boolean) { _uiState.update { it.copy(splittable = splittable, validationError = null) } }
 

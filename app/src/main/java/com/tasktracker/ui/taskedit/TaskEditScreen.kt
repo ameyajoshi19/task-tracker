@@ -1,19 +1,28 @@
 package com.tasktracker.ui.taskedit
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tasktracker.domain.model.SchedulingResult
 import com.tasktracker.ui.components.*
-import java.time.*
-import java.time.format.DateTimeFormatter
+import com.tasktracker.ui.theme.SortdColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,62 +82,116 @@ fun TaskEditScreen(
                 }
             }
 
-            OutlinedTextField(
-                value = uiState.title,
-                onValueChange = viewModel::updateTitle,
-                label = { Text("Title") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                isError = uiState.validationError != null && uiState.title.isBlank(),
-            )
+            // Title
+            Column {
+                Text(
+                    text = "TITLE",
+                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 11.sp, letterSpacing = 0.5.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+                OutlinedTextField(
+                    value = uiState.title,
+                    onValueChange = viewModel::updateTitle,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    isError = uiState.validationError != null && uiState.title.isBlank(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = SortdColors.accent,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    ),
+                )
+            }
 
-            OutlinedTextField(
-                value = uiState.description,
-                onValueChange = viewModel::updateDescription,
-                label = { Text("Description (optional)") },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2,
-                maxLines = 4,
-            )
+            // Description
+            Column {
+                Text(
+                    text = "DESCRIPTION",
+                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 11.sp, letterSpacing = 0.5.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+                OutlinedTextField(
+                    value = uiState.description,
+                    onValueChange = viewModel::updateDescription,
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 4,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = SortdColors.accent,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    ),
+                )
+            }
 
+            // Duration
             DurationPicker(
                 durationMinutes = uiState.durationMinutes,
                 onDurationChange = viewModel::updateDuration,
+                suggestedMinutes = uiState.suggestedDurationMinutes,
+                suggestedKeyword = uiState.suggestedDurationKeyword,
             )
 
-            QuadrantSelector(
-                selected = uiState.quadrant,
-                onSelect = viewModel::updateQuadrant,
-            )
-
+            // Deadline (moved above Priority)
             DeadlinePicker(
                 deadline = uiState.deadline,
                 onDeadlineChange = viewModel::updateDeadline,
             )
 
+            // Priority Quadrant
+            QuadrantSelector(
+                selected = uiState.quadrant,
+                onSelect = viewModel::updateQuadrant,
+                suggestedQuadrant = uiState.suggestedQuadrant,
+                suggestionReason = uiState.suggestedQuadrantReason,
+            )
+
+            // Day Preference
             DayPreferenceSelector(
                 selected = uiState.dayPreference,
                 onSelect = viewModel::updateDayPreference,
             )
 
+            // Splittable toggle
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                    .padding(12.dp, 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column {
-                    Text("Splittable", style = MaterialTheme.typography.labelLarge)
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Allow splitting across multiple time blocks",
+                        "Splittable",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        "Allow splitting across time blocks",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     )
                 }
                 Switch(
                     checked = uiState.splittable,
                     onCheckedChange = viewModel::updateSplittable,
+                    colors = SwitchDefaults.colors(
+                        checkedTrackColor = SortdColors.accent,
+                        checkedThumbColor = Color.White,
+                    ),
                 )
             }
 
+            // Validation errors
             if (uiState.validationError != null) {
                 Text(
                     text = uiState.validationError!!,
@@ -139,125 +202,42 @@ fun TaskEditScreen(
 
             val result = uiState.schedulingResult
             if (result is SchedulingResult.DeadlineAtRisk) {
-                Text(
-                    text = result.message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Text(text = result.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
             }
             if (result is SchedulingResult.NoSlotsAvailable) {
-                Text(
-                    text = result.message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Text(text = result.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
             }
 
-            Button(
-                onClick = viewModel::save,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isSaving,
+            // CTA Button
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(
+                        if (!uiState.isSaving) Brush.linearGradient(listOf(SortdColors.accent, SortdColors.accentLight))
+                        else Brush.linearGradient(listOf(SortdColors.accent.copy(alpha = 0.5f), SortdColors.accentLight.copy(alpha = 0.5f)))
+                    )
+                    .then(if (!uiState.isSaving) Modifier.clickable(onClick = viewModel::save) else Modifier),
+                contentAlignment = Alignment.Center,
             ) {
                 if (uiState.isSaving) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
                         strokeWidth = 2.dp,
+                        color = Color.White,
                     )
-                    Spacer(Modifier.width(8.dp))
+                } else {
+                    Text(
+                        text = if (uiState.isEditing) "Update" else "Sort it ⚡",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                    )
                 }
-                Text(if (uiState.isEditing) "Update" else "Create & Schedule")
             }
 
             Spacer(Modifier.height(16.dp))
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DeadlinePicker(
-    deadline: Instant?,
-    onDeadlineChange: (Instant?) -> Unit,
-) {
-    var showDatePicker by remember { mutableStateOf(false) }
-    var showTimePicker by remember { mutableStateOf(false) }
-    var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
-    val zoneId = ZoneId.systemDefault()
-
-    Column {
-        Text("Deadline (optional)", style = MaterialTheme.typography.labelLarge)
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { showDatePicker = true }) {
-                Text(
-                    deadline?.let {
-                        LocalDateTime.ofInstant(it, zoneId)
-                            .format(DateTimeFormatter.ofPattern("MMM d, yyyy h:mm a"))
-                    } ?: "Set deadline"
-                )
-            }
-            if (deadline != null) {
-                TextButton(onClick = { onDeadlineChange(null) }) {
-                    Text("Clear")
-                }
-            }
-        }
-    }
-
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = deadline?.toEpochMilli()
-                ?: System.currentTimeMillis(),
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        // DatePicker returns midnight UTC — convert to local date
-                        selectedDate = Instant.ofEpochMilli(millis)
-                            .atZone(ZoneOffset.UTC)
-                            .toLocalDate()
-                        showDatePicker = false
-                        showTimePicker = true
-                    }
-                }) { Text("OK") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
-            },
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-
-    if (showTimePicker) {
-        val existingTime = deadline?.let {
-            LocalDateTime.ofInstant(it, zoneId).toLocalTime()
-        }
-        val timePickerState = rememberTimePickerState(
-            initialHour = existingTime?.hour ?: 17,
-            initialMinute = existingTime?.minute ?: 0,
-        )
-        AlertDialog(
-            onDismissRequest = { showTimePicker = false },
-            title = { Text("Set time") },
-            text = { TimePicker(state = timePickerState) },
-            confirmButton = {
-                TextButton(onClick = {
-                    selectedDate?.let { date ->
-                        val localDateTime = date.atTime(
-                            timePickerState.hour,
-                            timePickerState.minute,
-                        )
-                        onDeadlineChange(localDateTime.atZone(zoneId).toInstant())
-                    }
-                    showTimePicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
-            },
-        )
     }
 }
