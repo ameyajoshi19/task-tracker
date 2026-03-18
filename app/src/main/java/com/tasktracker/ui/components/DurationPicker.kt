@@ -22,7 +22,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tasktracker.ui.theme.SortdColors
-import kotlinx.coroutines.launch
 
 private val DURATION_KEYWORDS: List<Pair<List<String>, Int>> = listOf(
     listOf("meeting", "sync", "standup", "huddle", "check-in") to 30,
@@ -74,7 +73,6 @@ fun DurationPicker(
 ) {
     var showCustom by remember { mutableStateOf(false) }
     val isCustom = PRESET_CHIPS.none { it.minutes == durationMinutes } || showCustom
-    val isDark = MaterialTheme.colorScheme.background == SortdColors.Dark.background
 
     Column(modifier = modifier) {
         Text(
@@ -180,7 +178,6 @@ private fun CustomDurationWheel(
     val minutes = durationMinutes % 60
     val hourOptions = (0..8).toList()
     val minuteOptions = listOf(0, 15, 30, 45)
-    val scope = rememberCoroutineScope()
 
     val hourListState = rememberLazyListState(initialFirstVisibleItemIndex = hours.coerceIn(0, 8))
     val minuteListState = rememberLazyListState(

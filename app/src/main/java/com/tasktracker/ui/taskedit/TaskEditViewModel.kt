@@ -13,9 +13,12 @@ import com.tasktracker.domain.validation.ValidationResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import com.tasktracker.ui.components.suggestDuration
+import com.tasktracker.ui.components.suggestQuadrant
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 
 data class TaskEditUiState(
@@ -81,10 +84,10 @@ class TaskEditViewModel @Inject constructor(
     }
 
     fun updateTitle(title: String) {
-        val suggestion = com.tasktracker.ui.components.suggestDuration(title)
+        val suggestion = suggestDuration(title)
         val keyword = if (suggestion != null) {
             title.lowercase().split(" ").firstOrNull { word ->
-                com.tasktracker.ui.components.suggestDuration(word) != null
+                suggestDuration(word) != null
             }
         } else null
         _uiState.update {
@@ -100,11 +103,12 @@ class TaskEditViewModel @Inject constructor(
     fun updateDuration(minutes: Int) { _uiState.update { it.copy(durationMinutes = minutes, validationError = null) } }
     fun updateQuadrant(q: Quadrant) { _uiState.update { it.copy(quadrant = q) } }
     fun updateDeadline(deadline: Instant?) {
+        val now = Instant.now()
         val suggested = deadline?.let {
-            com.tasktracker.ui.components.suggestQuadrant(it, Instant.now())
+            suggestQuadrant(it, now)
         }
         val reason = deadline?.let {
-            val hoursUntil = java.time.temporal.ChronoUnit.HOURS.between(Instant.now(), it)
+            val hoursUntil = ChronoUnit.HOURS.between(now, it)
             when {
                 hoursUntil <= 24 -> "deadline is today"
                 hoursUntil <= 72 -> "deadline in ${hoursUntil / 24 + 1} days"
@@ -119,7 +123,7 @@ class TaskEditViewModel @Inject constructor(
                 suggestedQuadrantReason = reason,
             )
             // Auto-select suggested quadrant if user hasn't manually changed it
-            if (suggested != null && it.quadrant == it.suggestedQuadrant ?: Quadrant.IMPORTANT) {
+            if (suggested != null && it.quadrant == (it.suggestedQuadrant ?: Quadrant.IMPORTANT)) {
                 newState = newState.copy(quadrant = suggested)
             }
             newState
