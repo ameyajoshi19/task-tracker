@@ -2,13 +2,14 @@
 
 ## Overview
 
-Five targeted fixes and features addressing scheduling reliability and task list usability:
+Six targeted fixes and features addressing scheduling reliability and task list usability:
 
 1. Fix conflict resolution so higher-priority tasks displace lower-priority ones
 2. Atomic save — don't persist tasks when scheduling fails
 3. Swipe-to-delete with confirmation and calendar event cleanup
 4. Swipe-to-reschedule with old slot blocking
 5. Show scheduled time and deadline on task cards
+6. "Due Today" urgency section at the top of the task list
 
 ## Context
 
@@ -171,6 +172,35 @@ No schema migration needed — this is a read-only query over existing tables.
 - `ui/tasklist/TaskListViewModel.kt` — observe joined data
 - `ui/components/TaskCard.kt` — render scheduled time and deadline
 - `ui/tasklist/TaskListScreen.kt` — pass new data to TaskCard
+
+---
+
+## 6. "Due Today" Urgency Section
+
+### Behavior
+
+- A prominent section appears at the **top** of the task list, above the quadrant groups, when any active task has a deadline set to today (regardless of quadrant)
+- Header: "Due Today" with a warning icon and accent/red color to grab attention
+- Shows only tasks where `deadline` falls on the current calendar day (compare in the device's timezone)
+- Tasks in this section still appear in their normal quadrant group below — the "Due Today" section is a **duplicate view** for visibility, not a move
+- If no tasks are due today, the section is hidden entirely (no empty state)
+- Completed tasks with today's deadline should NOT appear in this section
+
+### Visual Treatment
+
+- Warning/urgency color for the section header (red or orange, consistent with the deadline warning color from Section 5)
+- Task cards in this section use the same `TaskCard` component (with swipe gestures, scheduled time, etc.)
+- Section should feel visually distinct from the quadrant groups — e.g., a subtle background tint or border
+
+### Data Flow
+
+- The `TaskListViewModel` already has access to all tasks. Filter for `deadline != null && deadline.isToday(zoneId) && status != COMPLETED` and expose as a separate list in the UI state
+- No new queries needed — reuses the same `TaskWithBlockDto` data from Section 5
+
+### Files to Modify
+
+- `ui/tasklist/TaskListViewModel.kt` — add `dueTodayTasks` to UI state
+- `ui/tasklist/TaskListScreen.kt` — render "Due Today" section above quadrant groups
 
 ---
 
