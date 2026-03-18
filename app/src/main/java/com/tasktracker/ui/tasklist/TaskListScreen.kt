@@ -25,6 +25,7 @@ import androidx.compose.material3.*
 import androidx.compose.ui.res.painterResource
 import com.tasktracker.R
 import androidx.compose.runtime.*
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -142,18 +143,36 @@ fun TaskListScreen(
             ) {
                 // Due Today section
                 if (uiState.dueTodayTasks.isNotEmpty()) {
-                    item { DueTodayHeader(uiState.dueTodayTasks.size) }
-                    items(uiState.dueTodayTasks, key = { "due-${it.task.id}" }) { taskInfo ->
-                        SwipeableTaskCard(
-                            taskInfo = taskInfo,
-                            onEdit = { onEditTask(taskInfo.task.id) },
-                            onComplete = { viewModel.completeTask(taskInfo.task) },
-                            onDelete = { taskToDelete = taskInfo },
-                            onReschedule = { viewModel.rescheduleTask(taskInfo.task.id) },
-                            isRescheduling = taskInfo.task.id in uiState.reschedulingTaskIds,
-                        )
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .border(
+                                    1.dp,
+                                    SortdColors.deadlineWarning.copy(alpha = 0.2f),
+                                    RoundedCornerShape(14.dp),
+                                )
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            DueTodayHeader(uiState.dueTodayTasks.size)
+                            uiState.dueTodayTasks.forEach { taskInfo ->
+                                key(taskInfo.task.id) {
+                                    SwipeableTaskCard(
+                                        taskInfo = taskInfo,
+                                        onEdit = { onEditTask(taskInfo.task.id) },
+                                        onComplete = { viewModel.completeTask(taskInfo.task) },
+                                        onDelete = { taskToDelete = taskInfo },
+                                        onReschedule = { viewModel.rescheduleTask(taskInfo.task.id) },
+                                        isRescheduling = taskInfo.task.id in uiState.reschedulingTaskIds,
+                                    )
+                                }
+                            }
+                        }
                     }
-                    item { Spacer(Modifier.height(8.dp)) }
+                    item { Spacer(Modifier.height(16.dp)) }
                 }
 
                 // Quadrant groups
