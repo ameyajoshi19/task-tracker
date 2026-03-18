@@ -10,12 +10,15 @@ Add a "deadline pressure" check after direct scheduling succeeds. If the task's 
 
 ## Pressure Formula
 
+Both values use minutes to avoid precision loss:
+
 ```
-pressure = estimatedDurationHours / hoursUntilDeadline
+minutesUntilDeadline = Duration.between(Instant.now(), task.deadline).toMinutes()
+pressure = task.estimatedDurationMinutes.toDouble() / minutesUntilDeadline
 ```
 
 - If `pressure >= 0.25`, trigger reshuffle attempt.
-- If deadline is already past or `hoursUntilDeadline <= 0`, treat pressure as `1.0` (always reshuffle).
+- If `minutesUntilDeadline <= 0` (deadline past or now), treat pressure as `1.0` (always reshuffle).
 - Tasks without deadlines skip the pressure check entirely.
 
 ## Flow Change in `scheduleWithConflictResolution()`
@@ -29,10 +32,14 @@ pressure = estimatedDurationHours / hoursUntilDeadline
 
 1. Try scheduling without displacement.
 2. If succeeds AND task has a deadline:
-   a. Calculate pressure.
-   b. If `pressure >= 0.25`, attempt reshuffle by removing lower-priority blocks and re-running the scheduler with both the new task and displaced tasks.
-   c. If the reshuffle produces an earlier start time for the new task, return `NeedsReschedule` so the user can approve.
-   d. If the reshuffle doesn't improve timing (or no lower-priority blocks exist), return the original direct result.
+   a. Calculate pressure using `Instant.now()` as the reference time.
+   b. If `pressure >= 0.25`, identify lower-priority blocks using the same filter as the existing displacement logic (blocks where `priorityComparator.compare(newTask, blockTask) < 0`).
+   c. If no lower-priority blocks exist, return the original direct result.
+   d. Re-run scheduler with lower-priority blocks removed and both the new task and displaced tasks included.
+   e. Compare the **earliest start time** across all blocks for the new task between the direct result and the reshuffle result. For splittable tasks that produce multiple blocks, use the earliest block's start time.
+   f. If the reshuffle produces an earlier start time, return `NeedsReschedule` so the user can approve. The original direct-scheduled blocks serve as the fallback if the user rejects the reshuffle.
+   g. If the reshuffle doesn't improve timing, return the original direct result.
+   h. If the reshuffle produces `DeadlineAtRisk` or `NoSlotsAvailable` for any displaced task, abandon the reshuffle and return the original direct result.
 3. If step 1 fails, proceed with displacement as before (unchanged).
 
 ## What Changes
@@ -46,3 +53,6 @@ pressure = estimatedDurationHours / hoursUntilDeadline
 - **Reshuffle produces same or later start time**: Keep original result, no point asking the user.
 - **Task has no deadline**: Skip pressure check entirely.
 - **Deadline already passed**: Pressure = 1.0, always attempt reshuffle (best effort).
+- **Displaced tasks miss their deadlines after reshuffle**: Abandon reshuffle, return original direct result.
+- **User rejects reshuffle proposal**: Original direct-scheduled blocks (already `CONFIRMED`) are kept as-is.
+- **Splittable tasks with multiple blocks**: Compare earliest block start time between direct and reshuffle results.
