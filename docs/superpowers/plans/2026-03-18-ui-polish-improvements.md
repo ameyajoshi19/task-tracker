@@ -296,8 +296,9 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
+import android.provider.Settings
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.ui.autofill.LocalReduceMotion
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 ```
 
@@ -351,7 +352,12 @@ Box {
         onComplete = if (isRescheduling) ({ }) else onComplete,
     )
     if (isRescheduling) {
-        val reduceMotion = LocalReduceMotion.current?.enabled() ?: false
+        val context = LocalContext.current
+        val reduceMotion = Settings.Global.getFloat(
+            context.contentResolver,
+            Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f,
+        ) == 0f
         if (reduceMotion) {
             // Static overlay when reduce-motion is enabled
             Box(
