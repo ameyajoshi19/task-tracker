@@ -56,6 +56,7 @@ class TaskEditViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val taskId: Long = savedStateHandle.get<Long>("taskId") ?: -1L
+    private var savedTaskId: Long = taskId
     private val _uiState = MutableStateFlow(TaskEditUiState(isEditing = taskId != -1L))
     val uiState: StateFlow<TaskEditUiState> = _uiState.asStateFlow()
 
@@ -160,18 +161,7 @@ class TaskEditViewModel @Inject constructor(
                 return@launch
             }
 
-            val isEditing = taskId != -1L
-            val savedId = if (isEditing) {
-                // Delete old blocks and their Google Calendar events before re-scheduling
-                syncManager.deleteTaskEvents(taskId)
-                blockRepository.deleteByTaskId(taskId)
-                taskRepository.update(task)
-                taskId
-            } else {
-                taskRepository.insert(task)
-            }
-
-            // Run scheduler
+            // Gather scheduling inputs BEFORE persisting
             val allTasks = taskRepository.getByStatuses(
                 listOf(TaskStatus.PENDING, TaskStatus.SCHEDULED)
             )
@@ -193,12 +183,20 @@ class TaskEditViewModel @Inject constructor(
 
             val zoneId = ZoneId.systemDefault()
             val today = LocalDate.now(zoneId)
-            val savedTask = taskRepository.getById(savedId) ?: task.copy(id = savedId)
+            val isEditing = savedTaskId != -1L
 
+            // For edits, exclude the task's own old blocks from existingBlocks
+            val blocksForScheduling = if (isEditing) {
+                existingBlocks.filter { it.taskId != savedTaskId }
+            } else {
+                existingBlocks
+            }
+
+            // Run scheduler with in-memory task (not yet persisted)
             val result = taskScheduler.scheduleWithConflictResolution(
-                newTask = savedTask,
+                newTask = task,
                 allTasks = allTasks,
-                existingBlocks = existingBlocks,
+                existingBlocks = blocksForScheduling,
                 availability = availability,
                 busySlots = busySlots,
                 startDate = today,
@@ -207,11 +205,12 @@ class TaskEditViewModel @Inject constructor(
                 now = Instant.now(),
             )
 
-            // Update stale timestamp since we just fetched fresh busy slots
             appPreferences.setLastSyncTimestamp(Instant.now())
 
             when (result) {
                 is SchedulingResult.Scheduled -> {
+                    // Scheduling succeeded — now persist
+                    val savedId = persistTask(task, isEditing)
                     val blocksWithTaskId = result.blocks.map { it.copy(taskId = savedId) }
                     val insertedIds = blockRepository.insertAll(blocksWithTaskId)
                     taskRepository.updateStatus(savedId, TaskStatus.SCHEDULED)
@@ -221,18 +220,17 @@ class TaskEditViewModel @Inject constructor(
                     _uiState.update { it.copy(savedSuccessfully = true, isSaving = false) }
                 }
                 is SchedulingResult.NeedsReschedule -> {
-                    blockRepository.insertAll(
-                        (result.newBlocks + result.movedBlocks.map { it.second })
-                            .map { it.copy(taskId = savedId) }
-                    )
+                    val savedId = persistTask(task, isEditing)
+                    // Only remap newBlocks to saved ID; movedBlocks keep their original taskId
+                    val newBlocks = result.newBlocks.map { it.copy(taskId = savedId) }
+                    val movedBlocks = result.movedBlocks.map { it.second }
+                    blockRepository.insertAll(newBlocks + movedBlocks)
                     _uiState.update {
-                        it.copy(
-                            schedulingResult = result,
-                            isSaving = false,
-                        )
+                        it.copy(schedulingResult = result, isSaving = false)
                     }
                 }
                 else -> {
+                    // Scheduling failed — do NOT persist
                     _uiState.update {
                         it.copy(
                             schedulingResult = result,
@@ -242,6 +240,19 @@ class TaskEditViewModel @Inject constructor(
                     }
                 }
             }
+        }
+    }
+
+    private suspend fun persistTask(task: Task, isEditing: Boolean): Long {
+        return if (isEditing) {
+            syncManager.deleteTaskEvents(savedTaskId)
+            blockRepository.deleteByTaskId(savedTaskId)
+            taskRepository.update(task.copy(id = savedTaskId))
+            savedTaskId
+        } else {
+            val id = taskRepository.insert(task)
+            savedTaskId = id
+            id
         }
     }
 }
