@@ -112,7 +112,11 @@ class TaskEditViewModel @Inject constructor(
                 return@launch
             }
 
-            val savedId = if (taskId != -1L) {
+            val isEditing = taskId != -1L
+            val savedId = if (isEditing) {
+                // Delete old blocks and their Google Calendar events before re-scheduling
+                syncManager.deleteTaskEvents(taskId)
+                blockRepository.deleteByTaskId(taskId)
                 taskRepository.update(task)
                 taskId
             } else {
@@ -152,14 +156,19 @@ class TaskEditViewModel @Inject constructor(
                 startDate = today,
                 endDate = today.plusDays(14),
                 zoneId = zoneId,
+                now = Instant.now(),
             )
+
+            // Update stale timestamp since we just fetched fresh busy slots
+            appPreferences.setLastSyncTimestamp(Instant.now())
 
             when (result) {
                 is SchedulingResult.Scheduled -> {
-                    blockRepository.insertAll(result.blocks.map { it.copy(taskId = savedId) })
+                    val blocksWithTaskId = result.blocks.map { it.copy(taskId = savedId) }
+                    val insertedIds = blockRepository.insertAll(blocksWithTaskId)
                     taskRepository.updateStatus(savedId, TaskStatus.SCHEDULED)
-                    result.blocks.forEach { block ->
-                        syncManager.pushNewBlock(block.copy(taskId = savedId))
+                    blocksWithTaskId.zip(insertedIds).forEach { (block, id) ->
+                        syncManager.pushNewBlock(block.copy(id = id))
                     }
                     _uiState.update { it.copy(savedSuccessfully = true, isSaving = false) }
                 }

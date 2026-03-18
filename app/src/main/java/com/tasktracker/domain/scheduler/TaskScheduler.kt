@@ -177,6 +177,7 @@ class TaskScheduler(
         startDate: LocalDate,
         endDate: LocalDate,
         zoneId: ZoneId,
+        now: Instant = Instant.now(),
     ): SchedulingResult {
         // First, try to schedule the new task without touching existing blocks
         val directResult = schedule(
