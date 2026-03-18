@@ -59,7 +59,9 @@ class MainActivity : ComponentActivity() {
         val navigateTo = intent?.getStringExtra("navigate_to")
 
         setContent {
-            TaskTrackerTheme {
+            val themeMode by appPreferences.themeMode
+                .collectAsState(initial = "auto")
+            TaskTrackerTheme(themeMode = themeMode) {
                 val navController = rememberNavController()
                 val onboardingCompleted by appPreferences.onboardingCompleted
                     .collectAsState(initial = null)

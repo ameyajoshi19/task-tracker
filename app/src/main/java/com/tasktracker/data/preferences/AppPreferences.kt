@@ -23,6 +23,7 @@ class AppPreferences @Inject constructor(
         private val SYNC_INTERVAL = stringPreferencesKey("sync_interval")
         private val LAST_SYNC_TIMESTAMP = longPreferencesKey("last_sync_timestamp")
         private val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+        private val THEME_MODE = stringPreferencesKey("theme_mode")
         private const val STALE_THRESHOLD_MILLIS = 2 * 60 * 60 * 1000L // 2 hours
     }
 
@@ -63,5 +64,12 @@ class AppPreferences @Inject constructor(
 
     suspend fun setOnboardingCompleted(completed: Boolean) {
         context.dataStore.edit { it[ONBOARDING_COMPLETED] = completed }
+    }
+
+    val themeMode: Flow<String> = context.dataStore.data
+        .map { it[THEME_MODE] ?: "auto" }
+
+    suspend fun setThemeMode(mode: String) {
+        context.dataStore.edit { it[THEME_MODE] = mode }
     }
 }
