@@ -43,13 +43,3 @@ object SortdColors {
         val textTertiary = Color(0xFF94A3B8)
     }
 }
-
-// Legacy aliases for compatibility during migration
-val QuadrantUrgentImportant = SortdColors.nowStart
-val QuadrantImportant = SortdColors.nextStart
-val QuadrantUrgent = SortdColors.soonStart
-val QuadrantNeither = SortdColors.laterStart
-val StatusPending = Color(0xFF9E9E9E)
-val StatusScheduled = SortdColors.nowStart
-val StatusInProgress = SortdColors.soonStart
-val StatusCompleted = SortdColors.laterStart

@@ -20,6 +20,7 @@ data class SettingsUiState(
     val availabilities: List<UserAvailability> = emptyList(),
     val calendars: List<CalendarSelection> = emptyList(),
     val syncInterval: SyncInterval = SyncInterval.THIRTY_MINUTES,
+    val themeMode: String = "auto",
 )
 
 @HiltViewModel
@@ -36,12 +37,14 @@ class SettingsViewModel @Inject constructor(
         availabilityRepository.observeAll(),
         calendarSelectionRepository.observeAll(),
         appPreferences.syncInterval,
-    ) { email, availabilities, calendars, interval ->
+        appPreferences.themeMode,
+    ) { email, availabilities, calendars, interval, theme ->
         SettingsUiState(
             email = email,
             availabilities = availabilities,
             calendars = calendars,
             syncInterval = interval,
+            themeMode = theme,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -65,6 +68,12 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             appPreferences.setSyncInterval(interval)
             syncScheduler.schedule(interval)
+        }
+    }
+
+    fun updateThemeMode(mode: String) {
+        viewModelScope.launch {
+            appPreferences.setThemeMode(mode)
         }
     }
 

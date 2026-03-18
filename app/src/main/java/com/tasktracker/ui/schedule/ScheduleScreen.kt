@@ -105,10 +105,10 @@ fun ScheduleScreen(
                     items(uiState.items) { item ->
                         val color = if (item.isTaskBlock) {
                             when (item.quadrant) {
-                                Quadrant.URGENT_IMPORTANT -> QuadrantUrgentImportant
-                                Quadrant.IMPORTANT -> QuadrantImportant
-                                Quadrant.URGENT -> QuadrantUrgent
-                                Quadrant.NEITHER -> QuadrantNeither
+                                Quadrant.URGENT_IMPORTANT -> SortdColors.nowStart
+                                Quadrant.IMPORTANT -> SortdColors.nextStart
+                                Quadrant.URGENT -> SortdColors.soonStart
+                                Quadrant.NEITHER -> SortdColors.laterStart
                                 null -> MaterialTheme.colorScheme.primary
                             }
                         } else {

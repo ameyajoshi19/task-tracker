@@ -64,8 +64,3 @@ fun SortdTheme(
     )
 }
 
-@Composable
-fun TaskTrackerTheme(
-    themeMode: String = "auto",
-    content: @Composable () -> Unit,
-) = SortdTheme(themeMode = themeMode, content = content)

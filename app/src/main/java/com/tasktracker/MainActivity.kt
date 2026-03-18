@@ -12,7 +12,7 @@ import com.tasktracker.data.preferences.AppPreferences
 import com.tasktracker.data.sync.SyncScheduler
 import com.tasktracker.ui.navigation.Screen
 import com.tasktracker.ui.navigation.TaskTrackerNavGraph
-import com.tasktracker.ui.theme.TaskTrackerTheme
+import com.tasktracker.ui.theme.SortdTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val themeMode by appPreferences.themeMode
                 .collectAsState(initial = "auto")
-            TaskTrackerTheme(themeMode = themeMode) {
+            SortdTheme(themeMode = themeMode) {
                 val navController = rememberNavController()
                 val onboardingCompleted by appPreferences.onboardingCompleted
                     .collectAsState(initial = null)
