@@ -151,6 +151,9 @@ class CalendarSyncManagerTest {
         override suspend fun delete(task: Task) { tasks.remove(task.id) }
         override suspend fun getById(id: Long) = tasks[id]
         override fun observeAll() = kotlinx.coroutines.flow.flowOf(tasks.values.toList())
+        override fun observeAllWithScheduleInfo() = kotlinx.coroutines.flow.flowOf(
+            tasks.values.map { com.tasktracker.domain.model.TaskWithScheduleInfo(task = it) }
+        )
         override suspend fun getByStatus(status: TaskStatus) = tasks.values.filter { it.status == status }
         override suspend fun getByStatuses(statuses: List<TaskStatus>) = tasks.values.filter { it.status in statuses }
         override suspend fun updateStatus(id: Long, status: TaskStatus) { tasks[id] = tasks[id]!!.copy(status = status) }

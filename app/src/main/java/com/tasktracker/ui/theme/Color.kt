@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.Color
 object SortdColors {
     val accent = Color(0xFF7C3AED)
     val accentLight = Color(0xFFA78BFA)
+    val deadlineWarning = Color(0xFFEF4444)
 
     val nowStart = Color(0xFF7C3AED)
     val nowEnd = Color(0xFFA78BFA)

@@ -1,4 +1,3 @@
-// app/src/main/java/com/tasktracker/ui/components/TaskCard.kt
 package com.tasktracker.ui.components
 
 import androidx.compose.foundation.background
@@ -23,18 +22,22 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tasktracker.domain.model.Quadrant
-import com.tasktracker.domain.model.Task
 import com.tasktracker.domain.model.TaskStatus
+import com.tasktracker.domain.model.TaskWithScheduleInfo
 import com.tasktracker.ui.theme.SortdColors
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun TaskCard(
-    task: Task,
+    taskInfo: TaskWithScheduleInfo,
     onClick: () -> Unit,
     onComplete: () -> Unit,
-    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val task = taskInfo.task
     val isCompleted = task.status == TaskStatus.COMPLETED
     val (colorStart, colorEnd) = quadrantColors(task.quadrant)
 
@@ -66,9 +69,41 @@ fun TaskCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+
+            // Scheduled time
+            if (taskInfo.nextBlockStart != null && taskInfo.nextBlockEnd != null) {
+                val extra = if (taskInfo.blockCount > 1) " (+${taskInfo.blockCount - 1} more)" else ""
+                Text(
+                    text = formatScheduledTime(taskInfo.nextBlockStart, taskInfo.nextBlockEnd) + extra,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            } else if (!isCompleted) {
+                Text(
+                    text = "Not scheduled",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    maxLines = 1,
+                )
+            }
+
+            // Deadline
+            if (task.deadline != null) {
+                val isUrgent = isDeadlineUrgent(task.deadline)
+                Text(
+                    text = formatDeadline(task.deadline),
+                    fontSize = 11.sp,
+                    color = if (isUrgent) SortdColors.deadlineWarning else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = if (isUrgent) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 1,
+                )
+            }
+
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 4.dp),
             ) {
                 // Duration badge
                 Text(
@@ -121,4 +156,42 @@ fun quadrantColors(quadrant: Quadrant): Pair<Color, Color> = when (quadrant) {
     Quadrant.IMPORTANT -> SortdColors.nextStart to SortdColors.nextEnd
     Quadrant.URGENT -> SortdColors.soonStart to SortdColors.soonEnd
     Quadrant.NEITHER -> SortdColors.laterStart to SortdColors.laterEnd
+}
+
+private val timeFormatter = DateTimeFormatter.ofPattern("h:mm a")
+
+private fun formatScheduledTime(start: Instant, end: Instant): String {
+    val zoneId = ZoneId.systemDefault()
+    val startZoned = start.atZone(zoneId)
+    val endZoned = end.atZone(zoneId)
+    val today = LocalDate.now(zoneId)
+    val startDate = startZoned.toLocalDate()
+
+    val datePrefix = when {
+        startDate == today -> "Today"
+        startDate == today.plusDays(1) -> "Tomorrow"
+        else -> startDate.format(DateTimeFormatter.ofPattern("MMM d"))
+    }
+    return "$datePrefix, ${startZoned.format(timeFormatter)} - ${endZoned.format(timeFormatter)}"
+}
+
+private fun formatDeadline(deadline: Instant): String {
+    val zoneId = ZoneId.systemDefault()
+    val deadlineZoned = deadline.atZone(zoneId)
+    val today = LocalDate.now(zoneId)
+    val deadlineDate = deadlineZoned.toLocalDate()
+
+    return when {
+        deadlineDate.isBefore(today) -> "Overdue"
+        deadlineDate == today -> "Due today, ${deadlineZoned.format(timeFormatter)}"
+        deadlineDate == today.plusDays(1) -> "Due tomorrow"
+        else -> "Due ${deadlineDate.format(DateTimeFormatter.ofPattern("MMM d"))}"
+    }
+}
+
+private fun isDeadlineUrgent(deadline: Instant): Boolean {
+    val zoneId = ZoneId.systemDefault()
+    val deadlineDate = deadline.atZone(zoneId).toLocalDate()
+    val today = LocalDate.now(zoneId)
+    return !deadlineDate.isAfter(today)
 }
