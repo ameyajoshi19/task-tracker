@@ -179,14 +179,16 @@ private fun DeadlinePicker(
     deadline: Instant?,
     onDeadlineChange: (Instant?) -> Unit,
 ) {
-    var showPicker by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+    var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
     val zoneId = ZoneId.systemDefault()
 
     Column {
         Text("Deadline (optional)", style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { showPicker = true }) {
+            OutlinedButton(onClick = { showDatePicker = true }) {
                 Text(
                     deadline?.let {
                         LocalDateTime.ofInstant(it, zoneId)
@@ -202,26 +204,60 @@ private fun DeadlinePicker(
         }
     }
 
-    if (showPicker) {
+    if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = deadline?.toEpochMilli()
                 ?: System.currentTimeMillis(),
         )
         DatePickerDialog(
-            onDismissRequest = { showPicker = false },
+            onDismissRequest = { showDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
-                        onDeadlineChange(Instant.ofEpochMilli(millis))
+                        // DatePicker returns midnight UTC — convert to local date
+                        selectedDate = Instant.ofEpochMilli(millis)
+                            .atZone(ZoneOffset.UTC)
+                            .toLocalDate()
+                        showDatePicker = false
+                        showTimePicker = true
                     }
-                    showPicker = false
                 }) { Text("OK") }
             },
             dismissButton = {
-                TextButton(onClick = { showPicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
             },
         ) {
             DatePicker(state = datePickerState)
         }
+    }
+
+    if (showTimePicker) {
+        val existingTime = deadline?.let {
+            LocalDateTime.ofInstant(it, zoneId).toLocalTime()
+        }
+        val timePickerState = rememberTimePickerState(
+            initialHour = existingTime?.hour ?: 17,
+            initialMinute = existingTime?.minute ?: 0,
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = { Text("Set time") },
+            text = { TimePicker(state = timePickerState) },
+            confirmButton = {
+                TextButton(onClick = {
+                    selectedDate?.let { date ->
+                        val localDateTime = date.atTime(
+                            timePickerState.hour,
+                            timePickerState.minute,
+                        )
+                        onDeadlineChange(localDateTime.atZone(zoneId).toInstant())
+                    }
+                    showTimePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
+            },
+        )
     }
 }

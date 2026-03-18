@@ -79,6 +79,7 @@ fun TaskListScreen(
                             task = task,
                             onClick = { onEditTask(task.id) },
                             onComplete = { viewModel.completeTask(task) },
+                            onDelete = { viewModel.deleteTask(task) },
                         )
                     }
                 }
