@@ -16,6 +16,7 @@ import javax.inject.Inject
 
 data class TaskListUiState(
     val tasksByQuadrant: Map<Quadrant, List<Task>> = emptyMap(),
+    val completedTasks: List<Task> = emptyList(),
     val isLoading: Boolean = true,
 )
 
@@ -28,8 +29,11 @@ class TaskListViewModel @Inject constructor(
 
     val uiState: StateFlow<TaskListUiState> = taskRepository.observeAll()
         .map { tasks ->
+            val active = tasks.filter { it.status != TaskStatus.COMPLETED }
+            val completed = tasks.filter { it.status == TaskStatus.COMPLETED }
             TaskListUiState(
-                tasksByQuadrant = tasks.groupBy { it.quadrant },
+                tasksByQuadrant = active.groupBy { it.quadrant },
+                completedTasks = completed,
                 isLoading = false,
             )
         }
