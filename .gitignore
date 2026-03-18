@@ -10,3 +10,5 @@ platform-tools/
 platforms/
 licenses/
 .knownPackages
+.worktrees/
+.superpowers/
