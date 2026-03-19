@@ -13,6 +13,7 @@ import com.tasktracker.domain.repository.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
 import javax.inject.Inject
 
 data class SettingsUiState(
@@ -22,7 +23,14 @@ data class SettingsUiState(
     val calendars: List<CalendarSelection> = emptyList(),
     val syncInterval: SyncInterval = SyncInterval.THIRTY_MINUTES,
     val themeMode: String = "auto",
-)
+) {
+    val activeDayCount: Int
+        get() = availabilities.filter { it.enabled }.map { it.dayOfWeek }.distinct().size
+    val syncedCalendarCount: Int
+        get() = calendars.count { it.enabled }
+    val themeModeLabel: String
+        get() = themeMode.replaceFirstChar { it.uppercase() }
+}
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -102,6 +110,12 @@ class SettingsViewModel @Inject constructor(
     fun updateThemeMode(mode: String) {
         viewModelScope.launch {
             appPreferences.setThemeMode(mode)
+        }
+    }
+
+    fun copyToAllDays(dayOfWeek: DayOfWeek) {
+        viewModelScope.launch {
+            availabilityRepository.copyToAllDays(dayOfWeek)
         }
     }
 

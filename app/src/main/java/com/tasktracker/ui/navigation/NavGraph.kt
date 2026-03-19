@@ -78,6 +78,11 @@ fun TaskTrackerNavGraph(
                         popUpTo(0) { inclusive = true }
                     }
                 },
+                onNavigateToAccount = { /* Task 6: sub-page */ },
+                onNavigateToAvailability = { /* Task 6: sub-page */ },
+                onNavigateToCalendars = { /* Task 6: sub-page */ },
+                onNavigateToSync = { /* Task 6: sub-page */ },
+                onNavigateToTheme = { /* Task 6: sub-page */ },
             )
         }
     }
