@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.*
 import com.tasktracker.domain.model.SyncInterval
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.Flow
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -14,6 +15,7 @@ class SyncScheduler @Inject constructor(
 ) {
     companion object {
         private const val SYNC_WORK_NAME = "calendar_sync"
+        private const val SYNC_NOW_WORK_NAME = "calendar_sync_now"
     }
 
     fun schedule(interval: SyncInterval) {
@@ -57,8 +59,13 @@ class SyncScheduler @Inject constructor(
             .setConstraints(constraints)
             .build()
 
-        WorkManager.getInstance(context).enqueue(request)
+        WorkManager.getInstance(context)
+            .enqueueUniqueWork(SYNC_NOW_WORK_NAME, ExistingWorkPolicy.KEEP, request)
     }
+
+    fun observeSyncNowStatus(): Flow<List<WorkInfo>> =
+        WorkManager.getInstance(context)
+            .getWorkInfosForUniqueWorkFlow(SYNC_NOW_WORK_NAME)
 
     fun cancel() {
         WorkManager.getInstance(context).cancelUniqueWork(SYNC_WORK_NAME)
