@@ -1,6 +1,7 @@
 package com.tasktracker.ui.navigation
 
 sealed class Screen(val route: String) {
+    data object SignIn : Screen("sign_in")
     data object Onboarding : Screen("onboarding")
     data object TaskList : Screen("task_list")
     data object TaskEdit : Screen("task_edit/{taskId}") {

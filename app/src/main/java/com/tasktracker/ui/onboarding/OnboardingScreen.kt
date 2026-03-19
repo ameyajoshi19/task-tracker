@@ -1,7 +1,5 @@
 package com.tasktracker.ui.onboarding
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,12 +18,6 @@ fun OnboardingScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    val signInLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-    ) { result ->
-        viewModel.handleSignInResult(result.data)
-    }
-
     LaunchedEffect(uiState.step) {
         if (uiState.step == OnboardingStep.DONE) onFinished()
     }
@@ -39,8 +31,7 @@ fun OnboardingScreen(
         LinearProgressIndicator(
             progress = {
                 when (uiState.step) {
-                    OnboardingStep.SIGN_IN -> 0.33f
-                    OnboardingStep.AVAILABILITY -> 0.66f
+                    OnboardingStep.AVAILABILITY -> 0.5f
                     OnboardingStep.CALENDARS -> 1.0f
                     OnboardingStep.DONE -> 1.0f
                 }
@@ -51,14 +42,6 @@ fun OnboardingScreen(
         Spacer(Modifier.height(32.dp))
 
         when (uiState.step) {
-            OnboardingStep.SIGN_IN -> SignInStep(
-                isSigningIn = uiState.isSigningIn,
-                error = uiState.signInError,
-                onSignIn = {
-                    viewModel.setSigningIn()
-                    signInLauncher.launch(viewModel.getSignInIntent())
-                },
-            )
             OnboardingStep.AVAILABILITY -> AvailabilityStep(
                 availabilities = uiState.availabilities,
                 onUpdate = viewModel::updateAvailability,
@@ -73,41 +56,6 @@ fun OnboardingScreen(
                 onFinish = viewModel::saveCalendarsAndFinish,
             )
             OnboardingStep.DONE -> { /* Will navigate away */ }
-        }
-    }
-}
-
-@Composable
-private fun SignInStep(
-    isSigningIn: Boolean,
-    error: String?,
-    onSignIn: () -> Unit,
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text("Welcome to Task Tracker", style = MaterialTheme.typography.headlineLarge)
-        Text(
-            "Sign in with Google to sync your tasks with Google Calendar",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(24.dp))
-        Button(
-            onClick = onSignIn,
-            enabled = !isSigningIn,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            if (isSigningIn) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                Spacer(Modifier.width(8.dp))
-            }
-            Text("Sign in with Google")
-        }
-        if (error != null) {
-            Text(error, color = MaterialTheme.colorScheme.error)
         }
     }
 }

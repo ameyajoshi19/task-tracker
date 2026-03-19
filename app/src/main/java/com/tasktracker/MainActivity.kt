@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.tasktracker.data.connectivity.ConnectivityObserver
+import com.tasktracker.data.calendar.GoogleAuthManager
 import com.tasktracker.data.preferences.AppPreferences
 import com.tasktracker.data.sync.SyncScheduler
 import com.tasktracker.ui.navigation.Screen
@@ -25,6 +26,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var appPreferences: AppPreferences
+
+    @Inject
+    lateinit var authManager: GoogleAuthManager
 
     @Inject
     lateinit var syncScheduler: SyncScheduler
@@ -79,10 +83,13 @@ class MainActivity : ComponentActivity() {
                         navController = navController,
                         startDestination = Screen.TaskList.route,
                     )
-                    false -> TaskTrackerNavGraph(
-                        navController = navController,
-                        startDestination = Screen.Onboarding.route,
-                    )
+                    false -> {
+                        val isSignedIn = authManager.isSignedIn
+                        TaskTrackerNavGraph(
+                            navController = navController,
+                            startDestination = if (isSignedIn) Screen.Onboarding.route else Screen.SignIn.route,
+                        )
+                    }
                 }
             }
         }

@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.tasktracker.ui.onboarding.OnboardingScreen
+import com.tasktracker.ui.signin.SignInScreen
 import com.tasktracker.ui.reschedule.RescheduleScreen
 import com.tasktracker.ui.schedule.ScheduleScreen
 import com.tasktracker.ui.settings.SettingsScreen
@@ -22,6 +23,15 @@ fun TaskTrackerNavGraph(
         navController = navController,
         startDestination = startDestination,
     ) {
+        composable(Screen.SignIn.route) {
+            SignInScreen(
+                onSignedIn = {
+                    navController.navigate(Screen.Onboarding.route) {
+                        popUpTo(Screen.SignIn.route) { inclusive = true }
+                    }
+                },
+            )
+        }
         composable(Screen.Onboarding.route) {
             OnboardingScreen(
                 onFinished = {
@@ -64,7 +74,7 @@ fun TaskTrackerNavGraph(
             SettingsScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onSignedOut = {
-                    navController.navigate(Screen.Onboarding.route) {
+                    navController.navigate(Screen.SignIn.route) {
                         popUpTo(0) { inclusive = true }
                     }
                 },
