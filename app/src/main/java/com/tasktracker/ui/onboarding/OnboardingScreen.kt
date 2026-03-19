@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tasktracker.ui.components.AvailabilityEditor
+import java.time.DayOfWeek
 
 @Composable
 fun OnboardingScreen(
@@ -47,6 +48,7 @@ fun OnboardingScreen(
                 onUpdate = viewModel::updateAvailability,
                 onAdd = viewModel::addAvailability,
                 onRemove = viewModel::removeAvailability,
+                onCopyToAll = viewModel::copyToAllDays,
                 onNext = viewModel::saveAvailabilityAndProceed,
             )
             OnboardingStep.CALENDARS -> CalendarSelectionStep(
@@ -66,6 +68,7 @@ private fun AvailabilityStep(
     onUpdate: (com.tasktracker.domain.model.UserAvailability) -> Unit,
     onAdd: (com.tasktracker.domain.model.UserAvailability) -> Unit,
     onRemove: (com.tasktracker.domain.model.UserAvailability) -> Unit,
+    onCopyToAll: (DayOfWeek) -> Unit,
     onNext: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -74,6 +77,7 @@ private fun AvailabilityStep(
             onUpdate = onUpdate,
             onAdd = onAdd,
             onRemove = onRemove,
+            onCopyToAll = onCopyToAll,
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.height(16.dp))

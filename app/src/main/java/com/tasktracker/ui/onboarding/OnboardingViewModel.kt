@@ -78,6 +78,23 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
+    fun copyToAllDays(sourceDayOfWeek: DayOfWeek) {
+        _uiState.update { state ->
+            val sourceSlots = state.availabilities.filter {
+                it.dayOfWeek == sourceDayOfWeek && it.enabled
+            }
+            val otherDays = DayOfWeek.entries.filter { it != sourceDayOfWeek }
+            val copied = otherDays.flatMap { targetDay ->
+                sourceSlots.mapIndexed { index, slot ->
+                    val newId = (state.availabilities.minOfOrNull { it.id } ?: 0L) - 1 - (otherDays.indexOf(targetDay) * sourceSlots.size + index)
+                    slot.copy(id = newId, dayOfWeek = targetDay)
+                }
+            }
+            val updatedList = state.availabilities.filter { it.dayOfWeek == sourceDayOfWeek } + copied
+            state.copy(availabilities = updatedList)
+        }
+    }
+
     fun saveAvailabilityAndProceed() {
         viewModelScope.launch {
             for (a in _uiState.value.availabilities) {
