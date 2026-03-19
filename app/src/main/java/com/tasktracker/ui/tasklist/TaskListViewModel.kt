@@ -2,8 +2,10 @@ package com.tasktracker.ui.tasklist
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkInfo
 import com.tasktracker.data.calendar.CalendarSyncManager
 import com.tasktracker.data.preferences.AppPreferences
+import com.tasktracker.data.sync.SyncScheduler
 import com.tasktracker.domain.model.*
 import com.tasktracker.domain.repository.CalendarRepository
 import com.tasktracker.domain.repository.CalendarSelectionRepository
@@ -27,6 +29,7 @@ data class TaskListUiState(
     val isLoading: Boolean = true,
     val rescheduleError: String? = null,
     val reschedulingTaskIds: Set<Long> = emptySet(),
+    val isRefreshing: Boolean = false,
 )
 
 @HiltViewModel
@@ -39,16 +42,19 @@ class TaskListViewModel @Inject constructor(
     private val calendarRepository: CalendarRepository,
     private val taskScheduler: TaskScheduler,
     private val appPreferences: AppPreferences,
+    private val syncScheduler: SyncScheduler,
 ) : ViewModel() {
 
     private val _rescheduleError = MutableStateFlow<String?>(null)
     private val _reschedulingTaskIds = MutableStateFlow<Set<Long>>(emptySet())
+    private val _isRefreshing = MutableStateFlow(false)
 
     val uiState: StateFlow<TaskListUiState> = combine(
         taskRepository.observeAllWithScheduleInfo(),
         _rescheduleError,
         _reschedulingTaskIds,
-    ) { tasks, rescheduleErr, reschedulingIds ->
+        _isRefreshing,
+    ) { tasks, rescheduleErr, reschedulingIds, refreshing ->
         val zoneId = ZoneId.systemDefault()
         val today = LocalDate.now(zoneId)
 
@@ -68,6 +74,7 @@ class TaskListViewModel @Inject constructor(
             isLoading = false,
             rescheduleError = rescheduleErr,
             reschedulingTaskIds = reschedulingIds,
+            isRefreshing = refreshing,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -178,5 +185,26 @@ class TaskListViewModel @Inject constructor(
 
     fun clearRescheduleError() {
         _rescheduleError.value = null
+    }
+
+    fun refresh() {
+        if (_isRefreshing.value) return
+        _isRefreshing.value = true
+        syncScheduler.syncNow()
+        viewModelScope.launch {
+            val terminalState = syncScheduler.observeSyncNowStatus()
+                .mapNotNull { workInfos ->
+                    workInfos.firstOrNull()?.state
+                }
+                .first { state ->
+                    state == WorkInfo.State.SUCCEEDED ||
+                        state == WorkInfo.State.FAILED ||
+                        state == WorkInfo.State.CANCELLED
+                }
+            _isRefreshing.value = false
+            if (terminalState == WorkInfo.State.FAILED) {
+                _rescheduleError.value = "Sync failed. Please try again."
+            }
+        }
     }
 }
