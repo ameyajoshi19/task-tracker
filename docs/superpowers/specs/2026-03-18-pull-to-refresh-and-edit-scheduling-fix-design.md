@@ -17,9 +17,14 @@ No way to manually refresh data on the landing page. The only triggers are app s
 
 **SyncScheduler: deduplicated one-shot sync**
 
-Change `SyncScheduler.syncNow()` from a plain `enqueue` to `enqueueUniqueWork` with `ExistingWorkPolicy.KEEP`:
+Add a new constant `SYNC_NOW_WORK_NAME = "calendar_sync_now"` (distinct from the existing `SYNC_WORK_NAME` used for periodic sync). Change `syncNow()` from a plain `enqueue` to `enqueueUniqueWork` with `ExistingWorkPolicy.KEEP`:
 
 ```kotlin
+companion object {
+    private const val SYNC_WORK_NAME = "calendar_sync"
+    private const val SYNC_NOW_WORK_NAME = "calendar_sync_now"
+}
+
 fun syncNow() {
     val constraints = Constraints.Builder()
         .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -36,13 +41,21 @@ fun syncNow() {
 
 This ensures back-to-back calls (pull-to-refresh spam, app load + pull, connectivity restore + pull) are collapsed into one sync. All existing callers (`MainActivity` app load, connectivity listener) benefit automatically.
 
+Add a method to expose sync status as a Flow for the ViewModel to observe:
+
+```kotlin
+fun observeSyncNowStatus(): Flow<List<WorkInfo>> =
+    WorkManager.getInstance(context)
+        .getWorkInfosForUniqueWorkFlow(SYNC_NOW_WORK_NAME)
+```
+
 **TaskListViewModel: refresh state**
 
 Add to `TaskListUiState`:
 - `isRefreshing: Boolean = false`
 
 Add to `TaskListViewModel`:
-- `refresh()` — sets `isRefreshing = true`, calls `syncScheduler.syncNow()`, observes WorkManager's `WorkInfo` for the unique work name, clears `isRefreshing` when work reaches a terminal state (`SUCCEEDED`, `FAILED`, `CANCELLED`).
+- `refresh()` — sets `isRefreshing = true`, calls `syncScheduler.syncNow()`, observes `syncScheduler.observeSyncNowStatus()` to detect when work reaches a terminal state (`SUCCEEDED`, `FAILED`, `CANCELLED`), then clears `isRefreshing`. On `FAILED`, show a snackbar error via the existing `snackbarHostState`.
 
 **TaskListScreen: pull-to-refresh UI**
 
@@ -61,7 +74,7 @@ PullToRefreshBox(
 
 | File | Change |
 |------|--------|
-| `SyncScheduler.kt` | Use `enqueueUniqueWork` with `KEEP` policy |
+| `SyncScheduler.kt` | Add `SYNC_NOW_WORK_NAME` constant, use `enqueueUniqueWork` with `KEEP` policy, add `observeSyncNowStatus()` |
 | `TaskListViewModel.kt` | Add `isRefreshing` state, `refresh()` function, WorkInfo observer |
 | `TaskListScreen.kt` | Wrap content in `PullToRefreshBox` |
 
@@ -84,14 +97,15 @@ When editing a task that's already scheduled (e.g., 9-11am tomorrow), the task g
 
 **Filter busySlots in `TaskEditViewModel.save()`**
 
-When editing, compute the task's own block time ranges and filter them out of `busySlots`:
+When editing, compute the task's own block time ranges and filter them out of `busySlots`. Use overlap-based matching rather than exact time comparison, because Google Calendar's free/busy API can merge adjacent busy periods (e.g., a task event 9-10am adjacent to a personal event 10-11am may be returned as a single 9-11am busy slot):
 
 ```kotlin
 val filteredBusySlots = if (isEditing) {
     val ownBlocks = existingBlocks.filter { it.taskId == savedTaskId }
     busySlots.filter { busy ->
+        // Keep busy slots that don't overlap with any of the task's own blocks
         ownBlocks.none { own ->
-            busy.startTime == own.startTime && busy.endTime == own.endTime
+            busy.startTime < own.endTime && busy.endTime > own.startTime
         }
     }
 } else {
@@ -99,7 +113,9 @@ val filteredBusySlots = if (isEditing) {
 }
 ```
 
-The match is on exact start/end times since the free/busy API returns the same times as the calendar event. Pass `filteredBusySlots` instead of `busySlots` to `scheduleWithConflictResolution()`.
+This uses the standard overlap test (`A.start < B.end && A.end > B.start`). If a Google Calendar busy slot was merged with the task's own event, the entire merged slot is removed. This is acceptable because the non-task portion of the merged slot will still be represented by its own event in `existingBlocks` from other calendars, or the scheduler will naturally avoid conflicts with other busy times.
+
+Pass `filteredBusySlots` instead of `busySlots` to `scheduleWithConflictResolution()`.
 
 **Silent reschedule for edits**
 
