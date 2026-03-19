@@ -235,7 +235,7 @@ private fun TimeSlotRow(
     Row(verticalAlignment = Alignment.CenterVertically) {
         Surface(
             shape = RoundedCornerShape(6.dp),
-            color = MaterialTheme.colorScheme.surface,
+            color = MaterialTheme.colorScheme.surfaceContainerHighest,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.clickable { showStartPicker = true },
         ) {
@@ -256,7 +256,7 @@ private fun TimeSlotRow(
 
         Surface(
             shape = RoundedCornerShape(6.dp),
-            color = MaterialTheme.colorScheme.surface,
+            color = MaterialTheme.colorScheme.surfaceContainerHighest,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.clickable { showEndPicker = true },
         ) {
