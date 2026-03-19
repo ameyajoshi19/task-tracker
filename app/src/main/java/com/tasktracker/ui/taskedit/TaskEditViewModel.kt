@@ -192,13 +192,27 @@ class TaskEditViewModel @Inject constructor(
                 existingBlocks
             }
 
+            // For edits, also exclude the task's own calendar events from busySlots.
+            // The free/busy API includes the task's existing event, which would
+            // cause the scheduler to skip the task's current slot.
+            val filteredBusySlots = if (isEditing) {
+                val ownBlocks = existingBlocks.filter { it.taskId == savedTaskId }
+                busySlots.filter { busy ->
+                    ownBlocks.none { own ->
+                        busy.startTime < own.endTime && busy.endTime > own.startTime
+                    }
+                }
+            } else {
+                busySlots
+            }
+
             // Run scheduler with in-memory task (not yet persisted)
             val result = taskScheduler.scheduleWithConflictResolution(
                 newTask = task,
                 allTasks = allTasks,
                 existingBlocks = blocksForScheduling,
                 availability = availability,
-                busySlots = busySlots,
+                busySlots = filteredBusySlots,
                 startDate = today,
                 endDate = today.plusDays(14),
                 zoneId = zoneId,
