@@ -385,4 +385,65 @@ class TaskSchedulerTest {
         assertThat(reschedule.displacedTasks).hasSize(1)
         assertThat(reschedule.displacedTasks[0].id).isEqualTo(1L)
     }
+
+    @Test
+    fun `scheduler avoids busySlots even when they contain the tasks own event`() {
+        // Documents scheduler behavior: busySlots are always honored.
+        // When a task's own calendar event appears in busySlots (as happens
+        // when the free/busy API includes it), the scheduler correctly skips
+        // that slot. The fix for the edit bug must happen in the caller
+        // (TaskEditViewModel) by filtering busySlots before calling the scheduler.
+        val ownSlotStart = monday.atTime(9, 0).atZone(zoneId).toInstant()
+        val ownSlotEnd = monday.atTime(11, 0).atZone(zoneId).toInstant()
+
+        val busySlotsWithOwnEvent = listOf(
+            TimeSlot(ownSlotStart, ownSlotEnd),
+        )
+
+        val editedTask = task(id = 1, duration = 120)
+
+        val result = scheduler.schedule(
+            tasks = listOf(editedTask),
+            existingBlocks = emptyList(),
+            availability = listOf(availability()),
+            busySlots = busySlotsWithOwnEvent,
+            startDate = monday,
+            endDate = monday,
+            zoneId = zoneId,
+            now = testNow,
+        )
+
+        // Task lands at 11am — the scheduler correctly avoids the busy slot.
+        assertThat(result).isInstanceOf(SchedulingResult.Scheduled::class.java)
+        val blocks = (result as SchedulingResult.Scheduled).blocks
+        assertThat(blocks).hasSize(1)
+        assertThat(blocks[0].startTime).isEqualTo(
+            monday.atTime(11, 0).atZone(zoneId).toInstant()
+        )
+    }
+
+    @Test
+    fun `scheduler places task at 9am when busySlots are filtered`() {
+        // After the fix: busySlots no longer include the task's own event.
+        // The scheduler should place the task at 9am.
+        val editedTask = task(id = 1, duration = 120)
+
+        val result = scheduler.schedule(
+            tasks = listOf(editedTask),
+            existingBlocks = emptyList(),
+            availability = listOf(availability()),
+            busySlots = emptyList(),
+            startDate = monday,
+            endDate = monday,
+            zoneId = zoneId,
+            now = testNow,
+        )
+
+        assertThat(result).isInstanceOf(SchedulingResult.Scheduled::class.java)
+        val blocks = (result as SchedulingResult.Scheduled).blocks
+        assertThat(blocks).hasSize(1)
+        assertThat(blocks[0].startTime).isEqualTo(
+            monday.atTime(9, 0).atZone(zoneId).toInstant()
+        )
+    }
 }
