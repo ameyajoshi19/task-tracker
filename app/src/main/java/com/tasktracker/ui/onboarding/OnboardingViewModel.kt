@@ -19,9 +19,10 @@ enum class OnboardingStep { AVAILABILITY, CALENDARS, DONE }
 
 data class OnboardingUiState(
     val step: OnboardingStep = OnboardingStep.AVAILABILITY,
-    val availabilities: List<UserAvailability> = DayOfWeek.entries.map { day ->
+    val availabilities: List<UserAvailability> = DayOfWeek.entries.mapIndexed { index, day ->
         val isWeekday = day != DayOfWeek.SATURDAY && day != DayOfWeek.SUNDAY
         UserAvailability(
+            id = -(index + 1).toLong(),
             dayOfWeek = day,
             startTime = LocalTime.of(9, 0),
             endTime = LocalTime.of(17, 0),
