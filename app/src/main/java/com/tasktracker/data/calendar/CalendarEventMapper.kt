@@ -18,7 +18,7 @@ class CalendarEventMapper @Inject constructor() {
         val title = if (completed) "Completed: $taskTitle" else taskTitle
         return Event()
             .setSummary(title)
-            .setDescription("Scheduled by Task Tracker")
+            .setDescription("Scheduled by Sortd")
             .setStart(
                 EventDateTime()
                     .setDateTime(DateTime(block.startTime.toEpochMilli()))

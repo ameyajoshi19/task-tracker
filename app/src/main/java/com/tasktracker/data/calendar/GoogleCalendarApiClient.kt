@@ -27,8 +27,9 @@ class GoogleCalendarApiClient @Inject constructor(
 ) : CalendarRepository {
 
     companion object {
-        private const val APP_NAME = "Task Tracker"
-        private const val TASK_CALENDAR_NAME = "Task Tracker"
+        private const val APP_NAME = "Sortd Task Tracker"
+        private const val TASK_CALENDAR_NAME = "Sortd Task Tracker"
+        private const val LEGACY_CALENDAR_NAME = "Task Tracker"
     }
 
     private fun getService(): Calendar {
@@ -71,18 +72,32 @@ class GoogleCalendarApiClient @Inject constructor(
         val service = getService()
         // Search by name
         val calendarList = service.calendarList().list().execute()
-        val existing = calendarList.items.find { it.summary == TASK_CALENDAR_NAME }
+        val existing = calendarList.items.find {
+            it.summary == TASK_CALENDAR_NAME || it.summary == LEGACY_CALENDAR_NAME
+        }
         if (existing != null) {
+            if (existing.summary == LEGACY_CALENDAR_NAME) {
+                renameCalendar(existing.id, TASK_CALENDAR_NAME)
+            }
             appPreferences.setTaskCalendarId(existing.id)
             return@withContext existing.id
         }
         // Create new calendar
         val newCalendar = com.google.api.services.calendar.model.Calendar()
             .setSummary(TASK_CALENDAR_NAME)
-            .setDescription("Managed by Task Tracker app")
+            .setDescription("Managed by Sortd")
         val created = service.calendars().insert(newCalendar).execute()
         appPreferences.setTaskCalendarId(created.id)
         created.id
+    }
+
+    override suspend fun renameCalendar(calendarId: String, newName: String) {
+        withContext(Dispatchers.IO) {
+            val service = getService()
+            val calendar = com.google.api.services.calendar.model.Calendar()
+            calendar.summary = newName
+            service.calendars().patch(calendarId, calendar).execute()
+        }
     }
 
     override suspend fun getFreeBusySlots(

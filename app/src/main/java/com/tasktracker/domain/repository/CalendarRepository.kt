@@ -8,6 +8,7 @@ import java.time.Instant
 interface CalendarRepository {
     suspend fun listCalendars(): List<CalendarInfo>
     suspend fun getOrCreateTaskCalendar(): String
+    suspend fun renameCalendar(calendarId: String, newName: String)
     suspend fun getFreeBusySlots(
         calendarIds: List<String>,
         timeMin: Instant,

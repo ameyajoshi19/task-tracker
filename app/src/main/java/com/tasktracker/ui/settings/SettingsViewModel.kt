@@ -32,13 +32,25 @@ class SettingsViewModel @Inject constructor(
     private val syncScheduler: SyncScheduler,
 ) : ViewModel() {
 
+    @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<SettingsUiState> = combine(
         authManager.signedInEmail,
         availabilityRepository.observeAll(),
         calendarSelectionRepository.observeAll(),
         appPreferences.syncInterval,
         appPreferences.themeMode,
-    ) { email, availabilities, calendars, interval, theme ->
+        appPreferences.taskCalendarId,
+    ) { values ->
+        // Index mapping: 0=email, 1=availabilities, 2=calendars, 3=interval, 4=theme, 5=taskCalId
+        val email = values[0] as String?
+        val availabilities = values[1] as List<UserAvailability>
+        val allCalendars = values[2] as List<CalendarSelection>
+        val interval = values[3] as SyncInterval
+        val theme = values[4] as String
+        val taskCalId = values[5] as String?
+
+        val calendars = allCalendars.filter { it.googleCalendarId != taskCalId }
+
         SettingsUiState(
             email = email,
             availabilities = availabilities,

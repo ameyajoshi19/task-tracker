@@ -133,10 +133,16 @@ class OnboardingViewModel @Inject constructor(
     private suspend fun loadCalendars() {
         try {
             val calendars = calendarRepository.listCalendars()
+            val taskCalId = appPreferences.taskCalendarId.first()
+            val filtered = calendars.filter { cal ->
+                cal.id != taskCalId &&
+                    cal.name != "Sortd Task Tracker" &&
+                    cal.name != "Task Tracker"
+            }
             _uiState.update { state ->
                 state.copy(
                     isLoadingCalendars = false,
-                    calendars = calendars.map {
+                    calendars = filtered.map {
                         CalendarSelectionState(
                             id = it.id,
                             name = it.name,
