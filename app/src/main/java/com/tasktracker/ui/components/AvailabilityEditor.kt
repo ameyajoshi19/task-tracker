@@ -136,8 +136,8 @@ private fun AvailabilityDayGroup(
 
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = SortdColors.Dark.card,
-        border = BorderStroke(1.dp, SortdColors.Dark.border),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = if (!dayEnabled) Modifier.alpha(0.6f) else Modifier,
     ) {
         Column(
@@ -158,7 +158,7 @@ private fun AvailabilityDayGroup(
                     text = dayName,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
-                    color = SortdColors.Dark.textPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(Modifier.weight(1f))
                 if (dayEnabled) {
@@ -235,8 +235,8 @@ private fun TimeSlotRow(
     Row(verticalAlignment = Alignment.CenterVertically) {
         Surface(
             shape = RoundedCornerShape(6.dp),
-            color = SortdColors.Dark.background,
-            border = BorderStroke(1.dp, SortdColors.Dark.border),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.clickable { showStartPicker = true },
         ) {
             Text(
@@ -250,14 +250,14 @@ private fun TimeSlotRow(
         Text(
             text = "to",
             style = MaterialTheme.typography.bodySmall,
-            color = SortdColors.Dark.textTertiary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 8.dp),
         )
 
         Surface(
             shape = RoundedCornerShape(6.dp),
-            color = SortdColors.Dark.background,
-            border = BorderStroke(1.dp, SortdColors.Dark.border),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.clickable { showEndPicker = true },
         ) {
             Text(
