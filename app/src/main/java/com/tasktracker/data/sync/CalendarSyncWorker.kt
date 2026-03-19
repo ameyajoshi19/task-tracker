@@ -90,15 +90,23 @@ class CalendarSyncWorker @AssistedInject constructor(
                 }
             }
 
-            // 4. Fetch fresh free/busy data
+            // 4. Fetch fresh free/busy data (excluding the task calendar to avoid
+            // false conflicts where confirmed blocks "conflict" with their own events)
             val enabledCalendars = calendarSelectionRepository.getEnabled()
-            val busySlots = calendarRepository.getFreeBusySlots(
-                calendarIds = enabledCalendars.map { it.googleCalendarId },
-                timeMin = now,
-                timeMax = twoWeeksLater,
-            )
+            val externalCalendarIds = enabledCalendars
+                .map { it.googleCalendarId }
+                .filter { it != resolvedCalendarId }
+            val busySlots = if (externalCalendarIds.isNotEmpty()) {
+                calendarRepository.getFreeBusySlots(
+                    calendarIds = externalCalendarIds,
+                    timeMin = now,
+                    timeMax = twoWeeksLater,
+                )
+            } else {
+                emptyList()
+            }
 
-            // 5. Check for conflicts between confirmed blocks and busy slots
+            // 5. Check for conflicts between confirmed blocks and external busy slots
             val currentBlocks = blockRepository.getByStatuses(listOf(BlockStatus.CONFIRMED))
             for (block in currentBlocks) {
                 val hasConflict = busySlots.any { busy ->
@@ -134,6 +142,12 @@ class CalendarSyncWorker @AssistedInject constructor(
 
                 when (result) {
                     is SchedulingResult.Scheduled -> {
+                        // Delete old blocks and calendar events for tasks being rescheduled
+                        val rescheduledTaskIds = result.blocks.map { it.taskId }.toSet()
+                        for (taskId in rescheduledTaskIds) {
+                            syncManager.deleteTaskEvents(taskId)
+                            blockRepository.deleteByTaskId(taskId)
+                        }
                         for (block in result.blocks) {
                             val id = blockRepository.insert(block)
                             taskRepository.updateStatus(block.taskId, TaskStatus.SCHEDULED)
