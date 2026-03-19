@@ -155,6 +155,13 @@ fun SettingsScreen(
                 }
             }
 
+            Text(
+                "More frequent syncs keep your schedule up to date but use more battery in the background.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+
             // Theme section
             Text("Theme", style = MaterialTheme.typography.titleMedium)
             Row(

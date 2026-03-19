@@ -184,7 +184,7 @@ class OnboardingViewModel @Inject constructor(
                 appPreferences.setTaskCalendarId(calendarId)
             } catch (_: Exception) { /* Will retry on first sync */ }
             appPreferences.setOnboardingCompleted(true)
-            syncScheduler.schedule(SyncInterval.THIRTY_MINUTES)
+            syncScheduler.schedule(SyncInterval.FIFTEEN_MINUTES)
             _uiState.update { it.copy(step = OnboardingStep.DONE) }
         }
     }

@@ -36,7 +36,7 @@ class AppPreferences @Inject constructor(
 
     val syncInterval: Flow<SyncInterval> = context.dataStore.data
         .map { prefs ->
-            val name = prefs[SYNC_INTERVAL] ?: SyncInterval.THIRTY_MINUTES.name
+            val name = prefs[SYNC_INTERVAL] ?: SyncInterval.FIFTEEN_MINUTES.name
             SyncInterval.valueOf(name)
         }
 

@@ -110,6 +110,7 @@ class CalendarSyncManagerTest {
 
         override suspend fun listCalendars() = emptyList<CalendarInfo>()
         override suspend fun getOrCreateTaskCalendar() = taskCalendarId
+        override suspend fun renameCalendar(calendarId: String, newName: String) {}
         override suspend fun getFreeBusySlots(calendarIds: List<String>, timeMin: Instant, timeMax: Instant) = emptyList<TimeSlot>()
         override suspend fun getEvents(calendarId: String, timeMin: Instant, timeMax: Instant) = emptyList<CalendarEvent>()
         override suspend fun createEvent(calendarId: String, block: ScheduledBlock, taskTitle: String): String {
