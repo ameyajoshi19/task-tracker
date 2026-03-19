@@ -97,8 +97,25 @@ class OnboardingViewModel @Inject constructor(
         _uiState.update { state ->
             state.copy(
                 availabilities = state.availabilities.map {
-                    if (it.dayOfWeek == availability.dayOfWeek) availability else it
+                    if (it.id == availability.id) availability else it
                 },
+            )
+        }
+    }
+
+    fun addAvailability(availability: UserAvailability) {
+        _uiState.update { state ->
+            val newId = (state.availabilities.minOfOrNull { it.id } ?: 0L) - 1
+            state.copy(
+                availabilities = state.availabilities + availability.copy(id = newId),
+            )
+        }
+    }
+
+    fun removeAvailability(availability: UserAvailability) {
+        _uiState.update { state ->
+            state.copy(
+                availabilities = state.availabilities.filter { it.id != availability.id },
             )
         }
     }

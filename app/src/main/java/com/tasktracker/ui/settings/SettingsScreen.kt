@@ -118,6 +118,8 @@ fun SettingsScreen(
             AvailabilityEditor(
                 availabilities = uiState.availabilities,
                 onUpdate = viewModel::updateAvailability,
+                onAdd = viewModel::addAvailability,
+                onRemove = viewModel::removeAvailability,
             )
 
             Text("Calendars", style = MaterialTheme.typography.titleMedium)

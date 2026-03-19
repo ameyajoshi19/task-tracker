@@ -62,6 +62,8 @@ fun OnboardingScreen(
             OnboardingStep.AVAILABILITY -> AvailabilityStep(
                 availabilities = uiState.availabilities,
                 onUpdate = viewModel::updateAvailability,
+                onAdd = viewModel::addAvailability,
+                onRemove = viewModel::removeAvailability,
                 onNext = viewModel::saveAvailabilityAndProceed,
             )
             OnboardingStep.CALENDARS -> CalendarSelectionStep(
@@ -114,12 +116,16 @@ private fun SignInStep(
 private fun AvailabilityStep(
     availabilities: List<com.tasktracker.domain.model.UserAvailability>,
     onUpdate: (com.tasktracker.domain.model.UserAvailability) -> Unit,
+    onAdd: (com.tasktracker.domain.model.UserAvailability) -> Unit,
+    onRemove: (com.tasktracker.domain.model.UserAvailability) -> Unit,
     onNext: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         AvailabilityEditor(
             availabilities = availabilities,
             onUpdate = onUpdate,
+            onAdd = onAdd,
+            onRemove = onRemove,
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.height(16.dp))

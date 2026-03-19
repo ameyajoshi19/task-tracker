@@ -58,6 +58,18 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun addAvailability(availability: UserAvailability) {
+        viewModelScope.launch {
+            availabilityRepository.insert(availability)
+        }
+    }
+
+    fun removeAvailability(availability: UserAvailability) {
+        viewModelScope.launch {
+            availabilityRepository.delete(availability)
+        }
+    }
+
     fun toggleCalendar(calendar: CalendarSelection) {
         viewModelScope.launch {
             calendarSelectionRepository.update(calendar.copy(enabled = !calendar.enabled))
