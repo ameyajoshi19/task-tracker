@@ -17,6 +17,7 @@ import javax.inject.Inject
 
 data class SettingsUiState(
     val email: String? = null,
+    val displayName: String? = null,
     val availabilities: List<UserAvailability> = emptyList(),
     val calendars: List<CalendarSelection> = emptyList(),
     val syncInterval: SyncInterval = SyncInterval.THIRTY_MINUTES,
@@ -40,19 +41,22 @@ class SettingsViewModel @Inject constructor(
         appPreferences.syncInterval,
         appPreferences.themeMode,
         appPreferences.taskCalendarId,
+        authManager.signedInDisplayName,
     ) { values ->
-        // Index mapping: 0=email, 1=availabilities, 2=calendars, 3=interval, 4=theme, 5=taskCalId
+        // Index: 0=email, 1=availabilities, 2=calendars, 3=interval, 4=theme, 5=taskCalId, 6=displayName
         val email = values[0] as String?
         val availabilities = values[1] as List<UserAvailability>
         val allCalendars = values[2] as List<CalendarSelection>
         val interval = values[3] as SyncInterval
         val theme = values[4] as String
         val taskCalId = values[5] as String?
+        val displayName = values[6] as String?
 
         val calendars = allCalendars.filter { it.googleCalendarId != taskCalId }
 
         SettingsUiState(
             email = email,
+            displayName = displayName,
             availabilities = availabilities,
             calendars = calendars,
             syncInterval = interval,

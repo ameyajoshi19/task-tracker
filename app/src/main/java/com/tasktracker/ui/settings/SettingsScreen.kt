@@ -100,10 +100,26 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Signed in as", style = MaterialTheme.typography.bodyMedium)
+                        val name = uiState.displayName
+                        Text(
+                            "Signed in as",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (name != null) {
+                            Text(
+                                name,
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                        }
                         Text(
                             uiState.email ?: "Not signed in",
-                            style = MaterialTheme.typography.bodyLarge,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (name != null) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
                         )
                     }
                     TextButton(onClick = {

@@ -25,6 +25,9 @@ class GoogleAuthManager @Inject constructor(
     private val _signedInEmail = MutableStateFlow<String?>(null)
     val signedInEmail: StateFlow<String?> = _signedInEmail.asStateFlow()
 
+    private val _signedInDisplayName = MutableStateFlow<String?>(null)
+    val signedInDisplayName: StateFlow<String?> = _signedInDisplayName.asStateFlow()
+
     val isSignedIn: Boolean get() = _signedInEmail.value != null
 
     private val scopes = listOf(
@@ -50,6 +53,7 @@ class GoogleAuthManager @Inject constructor(
         val account = GoogleSignIn.getLastSignedInAccount(context)
         if (account != null) {
             _signedInEmail.value = account.email
+            _signedInDisplayName.value = account.displayName
         }
     }
 
@@ -60,12 +64,14 @@ class GoogleAuthManager @Inject constructor(
             IllegalStateException("No email in sign-in result")
         )
         _signedInEmail.value = email
+        _signedInDisplayName.value = account.displayName
         return Result.success(email)
     }
 
     suspend fun signOut() {
         googleSignInClient.signOut().await()
         _signedInEmail.value = null
+        _signedInDisplayName.value = null
     }
 
     fun getCalendarCredential(): GoogleAccountCredential? {
