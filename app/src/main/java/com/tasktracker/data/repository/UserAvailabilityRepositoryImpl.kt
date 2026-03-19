@@ -6,6 +6,7 @@ import com.tasktracker.domain.model.UserAvailability
 import com.tasktracker.domain.repository.UserAvailabilityRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.DayOfWeek
 import javax.inject.Inject
 
 class UserAvailabilityRepositoryImpl @Inject constructor(
@@ -29,4 +30,18 @@ class UserAvailabilityRepositoryImpl @Inject constructor(
 
     override suspend fun getAll(): List<UserAvailability> =
         dao.getAll().map { it.toDomain() }
+
+    @androidx.room.Transaction
+    override suspend fun copyToAllDays(sourceDayOfWeek: DayOfWeek) {
+        val sourceSlots = dao.getByDayOfWeek(sourceDayOfWeek)
+        dao.deleteAllExceptDay(sourceDayOfWeek)
+        val copies = DayOfWeek.entries
+            .filter { it != sourceDayOfWeek }
+            .flatMap { targetDay ->
+                sourceSlots.map { slot ->
+                    slot.copy(id = 0, dayOfWeek = targetDay)
+                }
+            }
+        dao.insertAll(copies)
+    }
 }
