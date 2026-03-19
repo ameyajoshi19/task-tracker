@@ -125,9 +125,9 @@ private fun SettingsRow(
     onClick: () -> Unit,
 ) {
     Surface(
-        color = SortdColors.Dark.card,
+        color = MaterialTheme.colorScheme.surfaceContainer,
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, SortdColors.Dark.border),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
             modifier = Modifier
