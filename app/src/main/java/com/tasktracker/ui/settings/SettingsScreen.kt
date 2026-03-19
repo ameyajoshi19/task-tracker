@@ -55,42 +55,6 @@ fun SettingsScreen(
         ) {
             Spacer(Modifier.height(8.dp))
 
-            // Theme section
-            Text("Theme", style = MaterialTheme.typography.titleMedium)
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                listOf("Light", "Dark", "Auto").forEach { label ->
-                    val mode = label.lowercase()
-                    val isActive = uiState.themeMode == mode
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(
-                                if (isActive) SortdColors.accent.copy(alpha = 0.15f)
-                                else MaterialTheme.colorScheme.surfaceVariant
-                            )
-                            .border(
-                                width = if (isActive) 1.5.dp else 1.dp,
-                                color = if (isActive) SortdColors.accent
-                                else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                                shape = RoundedCornerShape(20.dp),
-                            )
-                            .clickable { viewModel.updateThemeMode(mode) }
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = label,
-                            fontSize = 14.sp,
-                            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-                            color = if (isActive) SortdColors.accent
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-
             Text("Account", style = MaterialTheme.typography.titleMedium)
             Card(modifier = Modifier.fillMaxWidth()) {
                 Row(
@@ -186,6 +150,42 @@ fun SettingsScreen(
                                 viewModel.updateSyncInterval(interval)
                                 expanded = false
                             },
+                        )
+                    }
+                }
+            }
+
+            // Theme section
+            Text("Theme", style = MaterialTheme.typography.titleMedium)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                listOf("Light", "Dark", "Auto").forEach { label ->
+                    val mode = label.lowercase()
+                    val isActive = uiState.themeMode == mode
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(
+                                if (isActive) SortdColors.accent.copy(alpha = 0.15f)
+                                else MaterialTheme.colorScheme.surfaceVariant
+                            )
+                            .border(
+                                width = if (isActive) 1.5.dp else 1.dp,
+                                color = if (isActive) SortdColors.accent
+                                else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                shape = RoundedCornerShape(20.dp),
+                            )
+                            .clickable { viewModel.updateThemeMode(mode) }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = label,
+                            fontSize = 14.sp,
+                            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (isActive) SortdColors.accent
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
