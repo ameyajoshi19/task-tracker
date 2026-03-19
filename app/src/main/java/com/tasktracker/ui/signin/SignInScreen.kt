@@ -27,6 +27,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -60,16 +61,18 @@ fun SignInScreen(
         if (uiState.signedIn) onSignedIn()
     }
 
-    val gradientBrush = Brush.linearGradient(
-        listOf(Color(0xFF1A1625), Color(0xFF2D2640)),
-        start = Offset(0f, 0f),
-        end = Offset(Float.MAX_VALUE, Float.MAX_VALUE),
-    )
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(gradientBrush),
+            .drawBehind {
+                drawRect(
+                    brush = Brush.linearGradient(
+                        listOf(Color(0xFF1A1625), Color(0xFF2D2640)),
+                        start = Offset(0f, 0f),
+                        end = Offset(size.width, size.height),
+                    )
+                )
+            },
     ) {
         // Center-aligned branding content
         Column(
