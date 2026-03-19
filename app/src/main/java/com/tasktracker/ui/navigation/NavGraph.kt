@@ -10,7 +10,12 @@ import com.tasktracker.ui.onboarding.OnboardingScreen
 import com.tasktracker.ui.signin.SignInScreen
 import com.tasktracker.ui.reschedule.RescheduleScreen
 import com.tasktracker.ui.schedule.ScheduleScreen
+import com.tasktracker.ui.settings.AccountScreen
+import com.tasktracker.ui.settings.AvailabilitySettingsScreen
+import com.tasktracker.ui.settings.CalendarsScreen
 import com.tasktracker.ui.settings.SettingsScreen
+import com.tasktracker.ui.settings.SyncScreen
+import com.tasktracker.ui.settings.ThemeScreen
 import com.tasktracker.ui.taskedit.TaskEditScreen
 import com.tasktracker.ui.tasklist.TaskListScreen
 
@@ -78,11 +83,41 @@ fun TaskTrackerNavGraph(
                         popUpTo(0) { inclusive = true }
                     }
                 },
-                onNavigateToAccount = { /* Task 6: sub-page */ },
-                onNavigateToAvailability = { /* Task 6: sub-page */ },
-                onNavigateToCalendars = { /* Task 6: sub-page */ },
-                onNavigateToSync = { /* Task 6: sub-page */ },
-                onNavigateToTheme = { /* Task 6: sub-page */ },
+                onNavigateToAccount = { navController.navigate(Screen.SettingsAccount.route) },
+                onNavigateToAvailability = { navController.navigate(Screen.SettingsAvailability.route) },
+                onNavigateToCalendars = { navController.navigate(Screen.SettingsCalendars.route) },
+                onNavigateToSync = { navController.navigate(Screen.SettingsSync.route) },
+                onNavigateToTheme = { navController.navigate(Screen.SettingsTheme.route) },
+            )
+        }
+        composable(Screen.SettingsAccount.route) {
+            AccountScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onSignedOut = {
+                    navController.navigate(Screen.SignIn.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+            )
+        }
+        composable(Screen.SettingsAvailability.route) {
+            AvailabilitySettingsScreen(
+                onNavigateBack = { navController.popBackStack() },
+            )
+        }
+        composable(Screen.SettingsCalendars.route) {
+            CalendarsScreen(
+                onNavigateBack = { navController.popBackStack() },
+            )
+        }
+        composable(Screen.SettingsSync.route) {
+            SyncScreen(
+                onNavigateBack = { navController.popBackStack() },
+            )
+        }
+        composable(Screen.SettingsTheme.route) {
+            ThemeScreen(
+                onNavigateBack = { navController.popBackStack() },
             )
         }
     }

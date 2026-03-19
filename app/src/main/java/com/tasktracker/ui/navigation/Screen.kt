@@ -10,4 +10,9 @@ sealed class Screen(val route: String) {
     data object Schedule : Screen("schedule")
     data object Reschedule : Screen("reschedule")
     data object Settings : Screen("settings")
+    data object SettingsAccount : Screen("settings/account")
+    data object SettingsAvailability : Screen("settings/availability")
+    data object SettingsCalendars : Screen("settings/calendars")
+    data object SettingsSync : Screen("settings/sync")
+    data object SettingsTheme : Screen("settings/theme")
 }
