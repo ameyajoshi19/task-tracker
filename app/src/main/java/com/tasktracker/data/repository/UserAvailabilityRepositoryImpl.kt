@@ -31,10 +31,8 @@ class UserAvailabilityRepositoryImpl @Inject constructor(
     override suspend fun getAll(): List<UserAvailability> =
         dao.getAll().map { it.toDomain() }
 
-    @androidx.room.Transaction
     override suspend fun copyToAllDays(sourceDayOfWeek: DayOfWeek) {
         val sourceSlots = dao.getByDayOfWeek(sourceDayOfWeek)
-        dao.deleteAllExceptDay(sourceDayOfWeek)
         val copies = DayOfWeek.entries
             .filter { it != sourceDayOfWeek }
             .flatMap { targetDay ->
@@ -42,6 +40,6 @@ class UserAvailabilityRepositoryImpl @Inject constructor(
                     slot.copy(id = 0, dayOfWeek = targetDay)
                 }
             }
-        dao.insertAll(copies)
+        dao.replaceAllExcept(sourceDayOfWeek, copies)
     }
 }

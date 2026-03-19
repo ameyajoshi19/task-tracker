@@ -33,4 +33,10 @@ interface UserAvailabilityDao {
 
     @Query("DELETE FROM user_availability WHERE dayOfWeek != :dayOfWeek")
     suspend fun deleteAllExceptDay(dayOfWeek: DayOfWeek)
+
+    @Transaction
+    suspend fun replaceAllExcept(sourceDayOfWeek: DayOfWeek, copies: List<UserAvailabilityEntity>) {
+        deleteAllExceptDay(sourceDayOfWeek)
+        insertAll(copies)
+    }
 }
