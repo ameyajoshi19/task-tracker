@@ -27,7 +27,15 @@ class CalendarSyncManager @Inject constructor(
 
         try {
             val eventId = calendarRepository.createEvent(calendarId, block, task.title)
-            blockRepository.update(block.copy(googleCalendarEventId = eventId))
+            try {
+                blockRepository.update(block.copy(googleCalendarEventId = eventId))
+            } catch (e: Exception) {
+                // DB update failed — delete the orphaned calendar event to prevent duplicates
+                try {
+                    calendarRepository.deleteEvent(calendarId, eventId)
+                } catch (_: IOException) { /* best-effort cleanup */ }
+                enqueueOperation(SyncOperationType.CREATE_EVENT, block, task)
+            }
         } catch (e: IOException) {
             enqueueOperation(SyncOperationType.CREATE_EVENT, block, task)
         }

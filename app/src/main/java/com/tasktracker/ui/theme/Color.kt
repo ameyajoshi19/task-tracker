@@ -23,7 +23,7 @@ object SortdColors {
     val laterGradient = Brush.linearGradient(listOf(laterStart, laterEnd))
 
     object Dark {
-        val background = Color(0xFF0A0A0A)
+        val background = Color(0xFF1A1625)
         val surface = Color(0xFF1A1625)
         val card = Color(0xFF231E30)
         val elevated = Color(0xFF2D2640)

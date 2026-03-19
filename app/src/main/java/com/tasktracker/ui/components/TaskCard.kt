@@ -3,6 +3,7 @@ package com.tasktracker.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,13 +41,19 @@ fun TaskCard(
     val task = taskInfo.task
     val isCompleted = task.status == TaskStatus.COMPLETED
     val (colorStart, colorEnd) = quadrantColors(task.quadrant)
+    val isDark = isSystemInDarkTheme()
+    val cardBackground = if (isDark) {
+        colorStart.copy(alpha = 0.12f)
+    } else {
+        colorStart.copy(alpha = 0.08f)
+    }
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .alpha(if (isCompleted) 0.45f else 1f)
             .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .background(cardBackground)
             .clickable(onClick = onClick)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,

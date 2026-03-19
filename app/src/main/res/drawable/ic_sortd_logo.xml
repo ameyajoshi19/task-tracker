@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="20dp"
+    android:viewportWidth="24"
+    android:viewportHeight="20">
+    <!-- Row 1: pink block (left, wider) -->
+    <path
+        android:fillColor="#EC4899"
+        android:pathData="M1.5,0.5 L12.5,0.5 C13.6,0.5 14.5,1.4 14.5,2.5 L14.5,3.5 C14.5,4.6 13.6,5.5 12.5,5.5 L1.5,5.5 C0.4,5.5 -0.5,4.6 -0.5,3.5 L-0.5,2.5 C-0.5,1.4 0.4,0.5 1.5,0.5 Z" />
+    <!-- Row 1: purple block (right, narrower) -->
+    <path
+        android:fillColor="#7C3AED"
+        android:pathData="M17,0.5 L22,0.5 C23.1,0.5 24,1.4 24,2.5 L24,3.5 C24,4.6 23.1,5.5 22,5.5 L17,5.5 C15.9,5.5 15,4.6 15,3.5 L15,2.5 C15,1.4 15.9,0.5 17,0.5 Z" />
+    <!-- Row 2: orange block (left, narrower) -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M1.5,7.5 L6.5,7.5 C7.6,7.5 8.5,8.4 8.5,9.5 L8.5,10.5 C8.5,11.6 7.6,12.5 6.5,12.5 L1.5,12.5 C0.4,12.5 -0.5,11.6 -0.5,10.5 L-0.5,9.5 C-0.5,8.4 0.4,7.5 1.5,7.5 Z" />
+    <!-- Row 2: medium purple block (right, wider) -->
+    <path
+        android:fillColor="#8B5CF6"
+        android:pathData="M11.5,7.5 L22,7.5 C23.1,7.5 24,8.4 24,9.5 L24,10.5 C24,11.6 23.1,12.5 22,12.5 L11.5,12.5 C10.4,12.5 9.5,11.6 9.5,10.5 L9.5,9.5 C9.5,8.4 10.4,7.5 11.5,7.5 Z" />
+    <!-- Row 3: green block (left, wide) -->
+    <path
+        android:fillColor="#34D399"
+        android:pathData="M1.5,14.5 L17.5,14.5 C18.6,14.5 19.5,15.4 19.5,16.5 L19.5,17.5 C19.5,18.6 18.6,19.5 17.5,19.5 L1.5,19.5 C0.4,19.5 -0.5,18.6 -0.5,17.5 L-0.5,16.5 C-0.5,15.4 0.4,14.5 1.5,14.5 Z" />
+    <!-- Row 3: brown block (right, small) -->
+    <path
+        android:fillColor="#92702A"
+        android:pathData="M22,14.5 L22,14.5 C23.1,14.5 24,15.4 24,16.5 L24,17.5 C24,18.6 23.1,19.5 22,19.5 L22,19.5 C20.9,19.5 20,18.6 20,17.5 L20,16.5 C20,15.4 20.9,14.5 22,14.5 Z" />
+</vector>

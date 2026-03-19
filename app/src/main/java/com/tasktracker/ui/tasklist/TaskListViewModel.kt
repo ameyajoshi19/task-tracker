@@ -166,9 +166,12 @@ class TaskListViewModel @Inject constructor(
                         blockRepository.deleteByTaskId(taskId)
                         val newBlocks = result.newBlocks.map { it.copy(taskId = taskId) }
                         val movedBlocks = result.movedBlocks.map { it.second }
-                        blockRepository.insertAll(newBlocks + movedBlocks)
+                        val allNewBlocks = newBlocks + movedBlocks
+                        val insertedIds = blockRepository.insertAll(allNewBlocks)
                         taskRepository.updateStatus(taskId, TaskStatus.SCHEDULED)
-                        newBlocks.forEach { syncManager.pushNewBlock(it) }
+                        allNewBlocks.zip(insertedIds).forEach { (block, id) ->
+                            syncManager.pushNewBlock(block.copy(id = id))
+                        }
                     }
                     is SchedulingResult.DeadlineAtRisk -> {
                         _rescheduleError.value = result.message
