@@ -242,7 +242,7 @@ private fun TimeSlotRow(
             Text(
                 text = slot.startTime.toString(),
                 style = MaterialTheme.typography.bodySmall,
-                color = SortdColors.Dark.textPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
             )
         }
@@ -263,7 +263,7 @@ private fun TimeSlotRow(
             Text(
                 text = slot.endTime.toString(),
                 style = MaterialTheme.typography.bodySmall,
-                color = SortdColors.Dark.textPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
             )
         }
