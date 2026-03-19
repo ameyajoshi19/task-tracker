@@ -23,7 +23,7 @@ class SortdColorsTest {
 
     @Test
     fun `dark surface colors are correct`() {
-        assertEquals(Color(0xFF0A0A0A), SortdColors.Dark.background)
+        assertEquals(Color(0xFF1A1625), SortdColors.Dark.background)
         assertEquals(Color(0xFF1A1625), SortdColors.Dark.surface)
         assertEquals(Color(0xFF231E30), SortdColors.Dark.card)
         assertEquals(Color(0xFF2D2640), SortdColors.Dark.elevated)
