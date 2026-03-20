@@ -4,6 +4,7 @@ import androidx.room.TypeConverter
 import com.tasktracker.domain.model.*
 import java.time.DayOfWeek
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalTime
 
 class Converters {
@@ -18,6 +19,12 @@ class Converters {
 
     @TypeConverter
     fun toLocalTime(value: String?): LocalTime? = value?.let { LocalTime.parse(it) }
+
+    @TypeConverter
+    fun fromLocalDate(value: LocalDate?): Long? = value?.toEpochDay()
+
+    @TypeConverter
+    fun toLocalDate(value: Long?): LocalDate? = value?.let { LocalDate.ofEpochDay(it) }
 
     @TypeConverter
     fun fromDayOfWeek(value: DayOfWeek?): Int? = value?.value
