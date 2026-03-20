@@ -123,6 +123,14 @@ fun TaskCard(
                         .background(colorStart.copy(alpha = 0.15f))
                         .padding(horizontal = 8.dp, vertical = 2.dp),
                 )
+                // Recurring indicator
+                if (taskInfo.recurringTaskId != null) {
+                    Text(
+                        text = "🔁",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
 

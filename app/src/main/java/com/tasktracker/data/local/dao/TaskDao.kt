@@ -4,6 +4,7 @@ import androidx.room.*
 import com.tasktracker.data.local.entity.TaskEntity
 import com.tasktracker.domain.model.TaskStatus
 import kotlinx.coroutines.flow.Flow
+import java.time.LocalDate
 
 @Dao
 interface TaskDao {
@@ -47,4 +48,17 @@ interface TaskDao {
         ORDER BY t.createdAt DESC
     """)
     fun observeAllWithNextBlock(): Flow<List<TaskWithNextBlockTuple>>
+
+    @Query("SELECT * FROM tasks WHERE recurringTaskId = :recurringTaskId")
+    suspend fun getByRecurringTaskId(recurringTaskId: Long): List<TaskEntity>
+
+    @Query("SELECT * FROM tasks WHERE recurringTaskId = :recurringTaskId AND instanceDate >= :startDate AND instanceDate < :endDate")
+    suspend fun getByRecurringTaskIdAndDateRange(
+        recurringTaskId: Long,
+        startDate: LocalDate,
+        endDate: LocalDate,
+    ): List<TaskEntity>
+
+    @Query("DELETE FROM tasks WHERE recurringTaskId = :recurringTaskId AND instanceDate >= :fromDate")
+    suspend fun deleteByRecurringTaskIdFromDate(recurringTaskId: Long, fromDate: LocalDate)
 }

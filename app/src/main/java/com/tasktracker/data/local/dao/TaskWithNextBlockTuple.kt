@@ -2,6 +2,8 @@ package com.tasktracker.data.local.dao
 
 import com.tasktracker.domain.model.*
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
 
 data class TaskWithNextBlockTuple(
     val id: Long,
@@ -14,6 +16,9 @@ data class TaskWithNextBlockTuple(
     val splittable: Boolean,
     val status: TaskStatus,
     val recurringPattern: String?,
+    val recurringTaskId: Long?,
+    val instanceDate: LocalDate?,
+    val fixedTime: LocalTime?,
     val createdAt: Instant,
     val updatedAt: Instant,
     val nextBlockStart: Instant?,

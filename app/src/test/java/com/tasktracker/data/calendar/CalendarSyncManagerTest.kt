@@ -158,6 +158,12 @@ class CalendarSyncManagerTest {
         override suspend fun getByStatus(status: TaskStatus) = tasks.values.filter { it.status == status }
         override suspend fun getByStatuses(statuses: List<TaskStatus>) = tasks.values.filter { it.status in statuses }
         override suspend fun updateStatus(id: Long, status: TaskStatus) { tasks[id] = tasks[id]!!.copy(status = status) }
+        override suspend fun getByRecurringTaskId(recurringTaskId: Long) = tasks.values.filter { it.recurringTaskId == recurringTaskId }
+        override suspend fun getByRecurringTaskIdAndDateRange(recurringTaskId: Long, startDate: java.time.LocalDate, endDate: java.time.LocalDate) =
+            tasks.values.filter { t -> t.recurringTaskId == recurringTaskId && t.instanceDate?.let { !it.isBefore(startDate) && it.isBefore(endDate) } == true }
+        override suspend fun deleteByRecurringTaskIdFromDate(recurringTaskId: Long, fromDate: java.time.LocalDate) {
+            tasks.entries.removeAll { e -> e.value.recurringTaskId == recurringTaskId && e.value.instanceDate?.let { !it.isBefore(fromDate) } == true }
+        }
     }
 
     class FakeSyncOperationRepository : SyncOperationRepository {

@@ -1,11 +1,20 @@
 package com.tasktracker.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.tasktracker.domain.model.*
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
 
-@Entity(tableName = "tasks")
+@Entity(
+    tableName = "tasks",
+    indices = [
+        Index("recurringTaskId"),
+        Index(value = ["recurringTaskId", "instanceDate"], unique = true),
+    ],
+)
 data class TaskEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
@@ -17,6 +26,9 @@ data class TaskEntity(
     val splittable: Boolean = false,
     val status: TaskStatus = TaskStatus.PENDING,
     val recurringPattern: String? = null,
+    val recurringTaskId: Long? = null,
+    val instanceDate: LocalDate? = null,
+    val fixedTime: LocalTime? = null,
     val createdAt: Instant = Instant.now(),
     val updatedAt: Instant = Instant.now(),
 ) {
@@ -31,6 +43,9 @@ data class TaskEntity(
         splittable = splittable,
         status = status,
         recurringPattern = recurringPattern,
+        recurringTaskId = recurringTaskId,
+        instanceDate = instanceDate,
+        fixedTime = fixedTime,
         createdAt = createdAt,
         updatedAt = updatedAt,
     )
@@ -47,6 +62,9 @@ data class TaskEntity(
             splittable = task.splittable,
             status = task.status,
             recurringPattern = task.recurringPattern,
+            recurringTaskId = task.recurringTaskId,
+            instanceDate = task.instanceDate,
+            fixedTime = task.fixedTime,
             createdAt = task.createdAt,
             updatedAt = task.updatedAt,
         )

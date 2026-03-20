@@ -191,6 +191,22 @@ fun TaskEditScreen(
                 )
             }
 
+            // Recurring task
+            RecurringTaskFields(
+                isRecurring = uiState.isRecurring,
+                onRecurringChange = viewModel::updateRecurring,
+                intervalDays = uiState.intervalDays,
+                onIntervalChange = viewModel::updateIntervalDays,
+                startDate = uiState.startDate,
+                onStartDateChange = viewModel::updateStartDate,
+                endDate = uiState.endDate,
+                onEndDateChange = viewModel::updateEndDate,
+                isFixedTime = uiState.isFixedTime,
+                onFixedTimeChange = viewModel::updateFixedTime,
+                fixedTime = uiState.fixedTime,
+                onFixedTimeValueChange = viewModel::updateFixedTimeValue,
+            )
+
             // Validation errors
             if (uiState.validationError != null) {
                 Text(
