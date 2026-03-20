@@ -41,9 +41,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tasktracker.domain.model.Quadrant
 import com.tasktracker.domain.model.TaskStatus
 import com.tasktracker.domain.model.TaskWithScheduleInfo
+import com.tasktracker.ui.components.RecurringDeleteChoice
+import com.tasktracker.ui.components.RecurringDeleteDialog
 import com.tasktracker.ui.components.TaskCard
 import com.tasktracker.ui.components.quadrantColors
 import com.tasktracker.ui.theme.SortdColors
+import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,6 +86,24 @@ fun TaskListScreen(
                     Text("Cancel")
                 }
             },
+        )
+    }
+
+    val recurringDeleteTask = uiState.recurringDeleteTask
+    val recurringDeleteTemplate = uiState.recurringDeleteTemplate
+    if (recurringDeleteTask != null && recurringDeleteTemplate != null) {
+        RecurringDeleteDialog(
+            taskTitle = recurringDeleteTask.task.title,
+            intervalDays = recurringDeleteTemplate.intervalDays,
+            instanceDate = recurringDeleteTask.task.instanceDate ?: LocalDate.now(),
+            onChoice = { choice ->
+                when (choice) {
+                    RecurringDeleteChoice.THIS_INSTANCE -> viewModel.deleteRecurringInstance(recurringDeleteTask.task)
+                    RecurringDeleteChoice.THIS_AND_FUTURE -> viewModel.deleteRecurringInstanceAndFuture(recurringDeleteTask.task)
+                    RecurringDeleteChoice.ENTIRE_RECURRING_TASK -> viewModel.deleteEntireRecurringTask(recurringDeleteTask.task)
+                }
+            },
+            onDismiss = viewModel::dismissRecurringDeleteDialog,
         )
     }
 
@@ -170,7 +191,7 @@ fun TaskListScreen(
                                         taskInfo = taskInfo,
                                         onEdit = { onEditTask(taskInfo.task.id) },
                                         onComplete = { viewModel.completeTask(taskInfo.task) },
-                                        onDelete = { taskToDelete = taskInfo },
+                                        onDelete = { if (taskInfo.recurringTaskId != null) viewModel.deleteTask(taskInfo) else taskToDelete = taskInfo },
                                         onReschedule = { viewModel.rescheduleTask(taskInfo.task.id) },
                                         isRescheduling = taskInfo.task.id in uiState.reschedulingTaskIds,
                                     )
@@ -196,7 +217,7 @@ fun TaskListScreen(
                             taskInfo = taskInfo,
                             onEdit = { onEditTask(taskInfo.task.id) },
                             onComplete = { viewModel.completeTask(taskInfo.task) },
-                            onDelete = { taskToDelete = taskInfo },
+                            onDelete = { if (taskInfo.recurringTaskId != null) viewModel.deleteTask(taskInfo) else taskToDelete = taskInfo },
                             onReschedule = { viewModel.rescheduleTask(taskInfo.task.id) },
                             isRescheduling = taskInfo.task.id in uiState.reschedulingTaskIds,
                         )
@@ -228,7 +249,7 @@ fun TaskListScreen(
                             taskInfo = taskInfo,
                             onEdit = { onEditTask(taskInfo.task.id) },
                             onComplete = { },
-                            onDelete = { taskToDelete = taskInfo },
+                            onDelete = { if (taskInfo.recurringTaskId != null) viewModel.deleteTask(taskInfo) else taskToDelete = taskInfo },
                             onReschedule = null,
                             isRescheduling = false,
                         )
