@@ -12,6 +12,14 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
+/**
+ * Application entry point. Handles one-time process-level setup:
+ * - Creates notification channels (must happen before any notification is posted).
+ * - Provides a custom [Configuration] that injects Hilt dependencies into WorkManager workers.
+ * - Schedules or cancels the daily summary [androidx.work.Worker] based on the persisted user
+ *   preference, using [runBlocking] so the preference is read synchronously before the first
+ *   Activity launches.
+ */
 @HiltAndroidApp
 class TaskTrackerApplication : Application(), Configuration.Provider {
 

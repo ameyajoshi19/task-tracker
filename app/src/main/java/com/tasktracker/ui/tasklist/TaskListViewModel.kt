@@ -136,6 +136,10 @@ class TaskListViewModel @Inject constructor(
         _recurringDeleteTemplate.value = null
     }
 
+    /**
+     * Deletes a single recurring instance and inserts an exception so [RecurrenceExpander] does
+     * not regenerate it on the next sync.
+     */
     fun deleteRecurringInstance(task: Task) {
         viewModelScope.launch {
             val recurringTaskId = task.recurringTaskId ?: return@launch
@@ -155,6 +159,11 @@ class TaskListViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Truncates the recurrence series by setting the template's [RecurringTask.endDate] to the
+     * day before [task]'s instance, then deletes all instances from that date forward along with
+     * their calendar events.
+     */
     fun deleteRecurringInstanceAndFuture(task: Task) {
         viewModelScope.launch {
             val recurringTaskId = task.recurringTaskId ?: return@launch

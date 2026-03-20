@@ -26,6 +26,17 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * The app's single Activity and Compose host.
+ *
+ * Responsibilities beyond standard Activity setup:
+ * - Requests the POST_NOTIFICATIONS runtime permission on Android 13+ at launch.
+ * - Triggers an on-demand calendar sync immediately after onboarding completes and whenever
+ *   network connectivity is restored (to drain the offline operation queue).
+ * - Reads a `navigate_to` deep-link extra from notification intents and navigates directly to
+ *   the reschedule screen when present.
+ * - Routes the Compose NavGraph start destination based on onboarding state and sign-in status.
+ */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
