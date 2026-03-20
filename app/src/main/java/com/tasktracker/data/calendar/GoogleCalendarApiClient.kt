@@ -134,7 +134,7 @@ class GoogleCalendarApiClient @Inject constructor(
             .setOrderBy("startTime")
             .execute()
         events.items.mapNotNull { event ->
-            if (event.start?.dateTime == null) return@mapNotNull null
+            if (event.start?.dateTime == null || event.end?.dateTime == null) return@mapNotNull null
             eventMapper.toDomain(event, calendarId)
         }
     }
