@@ -3,9 +3,14 @@ package com.tasktracker
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.tasktracker.data.preferences.AppPreferences
+import com.tasktracker.data.sync.DailySummaryScheduler
 import com.tasktracker.ui.notification.NotificationHelper
 import dagger.hilt.android.HiltAndroidApp
+import java.time.LocalTime
 import javax.inject.Inject
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 @HiltAndroidApp
 class TaskTrackerApplication : Application(), Configuration.Provider {
@@ -16,9 +21,25 @@ class TaskTrackerApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
 
+    @Inject
+    lateinit var dailySummaryScheduler: DailySummaryScheduler
+
+    @Inject
+    lateinit var appPreferences: AppPreferences
+
     override fun onCreate() {
         super.onCreate()
         notificationHelper.createChannels()
+        runBlocking {
+            val enabled = appPreferences.dailySummaryEnabled.first()
+            if (enabled) {
+                val timeStr = appPreferences.dailySummaryTime.first()
+                val time = LocalTime.parse(timeStr)
+                dailySummaryScheduler.schedule(time)
+            } else {
+                dailySummaryScheduler.cancel()
+            }
+        }
     }
 
     override val workManagerConfiguration: Configuration
