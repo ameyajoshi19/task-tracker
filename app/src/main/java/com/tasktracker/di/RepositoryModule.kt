@@ -33,4 +33,12 @@ abstract class RepositoryModule {
     abstract fun bindSyncOperationRepository(
         impl: SyncOperationRepositoryImpl
     ): SyncOperationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRecurringTaskRepository(impl: RecurringTaskRepositoryImpl): RecurringTaskRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRecurringTaskExceptionRepository(impl: RecurringTaskExceptionRepositoryImpl): RecurringTaskExceptionRepository
 }

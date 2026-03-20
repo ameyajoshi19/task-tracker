@@ -1,8 +1,10 @@
 package com.tasktracker.di
 
+import com.tasktracker.domain.scheduler.RecurrenceExpander
 import com.tasktracker.domain.scheduler.SlotFinder
 import com.tasktracker.domain.scheduler.TaskPriorityComparator
 import com.tasktracker.domain.scheduler.TaskScheduler
+import com.tasktracker.domain.validation.RecurringTaskValidator
 import com.tasktracker.domain.validation.TaskValidator
 import dagger.Module
 import dagger.Provides
@@ -32,4 +34,12 @@ object SchedulerModule {
     @Provides
     @Singleton
     fun provideTaskValidator(): TaskValidator = TaskValidator()
+
+    @Provides
+    @Singleton
+    fun provideRecurrenceExpander(): RecurrenceExpander = RecurrenceExpander()
+
+    @Provides
+    @Singleton
+    fun provideRecurringTaskValidator(): RecurringTaskValidator = RecurringTaskValidator()
 }
