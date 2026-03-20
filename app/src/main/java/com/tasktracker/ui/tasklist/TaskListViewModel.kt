@@ -9,6 +9,8 @@ import com.tasktracker.data.sync.SyncScheduler
 import com.tasktracker.domain.model.*
 import com.tasktracker.domain.repository.CalendarRepository
 import com.tasktracker.domain.repository.CalendarSelectionRepository
+import com.tasktracker.domain.repository.RecurringTaskExceptionRepository
+import com.tasktracker.domain.repository.RecurringTaskRepository
 import com.tasktracker.domain.repository.ScheduledBlockRepository
 import com.tasktracker.domain.repository.TaskRepository
 import com.tasktracker.domain.repository.UserAvailabilityRepository
@@ -30,6 +32,8 @@ data class TaskListUiState(
     val rescheduleError: String? = null,
     val reschedulingTaskIds: Set<Long> = emptySet(),
     val isRefreshing: Boolean = false,
+    val recurringDeleteTask: TaskWithScheduleInfo? = null,
+    val recurringDeleteTemplate: RecurringTask? = null,
 )
 
 @HiltViewModel
@@ -43,18 +47,23 @@ class TaskListViewModel @Inject constructor(
     private val taskScheduler: TaskScheduler,
     private val appPreferences: AppPreferences,
     private val syncScheduler: SyncScheduler,
+    private val recurringTaskRepository: RecurringTaskRepository,
+    private val recurringTaskExceptionRepository: RecurringTaskExceptionRepository,
 ) : ViewModel() {
 
     private val _rescheduleError = MutableStateFlow<String?>(null)
     private val _reschedulingTaskIds = MutableStateFlow<Set<Long>>(emptySet())
     private val _isRefreshing = MutableStateFlow(false)
+    private val _recurringDeleteTask = MutableStateFlow<TaskWithScheduleInfo?>(null)
+    private val _recurringDeleteTemplate = MutableStateFlow<RecurringTask?>(null)
 
     val uiState: StateFlow<TaskListUiState> = combine(
         taskRepository.observeAllWithScheduleInfo(),
         _rescheduleError,
         _reschedulingTaskIds,
         _isRefreshing,
-    ) { tasks, rescheduleErr, reschedulingIds, refreshing ->
+        combine(_recurringDeleteTask, _recurringDeleteTemplate) { task, template -> task to template },
+    ) { tasks, rescheduleErr, reschedulingIds, refreshing, (recurringTask, recurringTemplate) ->
         val zoneId = ZoneId.systemDefault()
         val today = LocalDate.now(zoneId)
 
@@ -75,6 +84,8 @@ class TaskListViewModel @Inject constructor(
             rescheduleError = rescheduleErr,
             reschedulingTaskIds = reschedulingIds,
             isRefreshing = refreshing,
+            recurringDeleteTask = recurringTask,
+            recurringDeleteTemplate = recurringTemplate,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -93,10 +104,95 @@ class TaskListViewModel @Inject constructor(
         }
     }
 
-    fun deleteTask(task: Task) {
+    fun deleteTask(taskInfo: TaskWithScheduleInfo) {
+        if (taskInfo.recurringTaskId != null) {
+            showRecurringDeleteDialog(taskInfo)
+        } else {
+            viewModelScope.launch {
+                syncManager.deleteTaskEvents(taskInfo.task.id)
+                taskRepository.delete(taskInfo.task)
+            }
+        }
+    }
+
+    fun showRecurringDeleteDialog(task: TaskWithScheduleInfo) {
         viewModelScope.launch {
+            val template = task.recurringTaskId?.let { recurringTaskRepository.getById(it) }
+            _recurringDeleteTask.value = task
+            _recurringDeleteTemplate.value = template
+        }
+    }
+
+    fun dismissRecurringDeleteDialog() {
+        _recurringDeleteTask.value = null
+        _recurringDeleteTemplate.value = null
+    }
+
+    fun deleteRecurringInstance(task: Task) {
+        viewModelScope.launch {
+            val recurringTaskId = task.recurringTaskId ?: return@launch
+            val instanceDate = task.instanceDate ?: return@launch
+
+            // Create exception so expander doesn't regenerate
+            recurringTaskExceptionRepository.insert(
+                RecurringTaskException(recurringTaskId = recurringTaskId, exceptionDate = instanceDate)
+            )
+
+            // Delete calendar events, then delete the task instance
             syncManager.deleteTaskEvents(task.id)
             taskRepository.delete(task)
+
+            _recurringDeleteTask.value = null
+            _recurringDeleteTemplate.value = null
+        }
+    }
+
+    fun deleteRecurringInstanceAndFuture(task: Task) {
+        viewModelScope.launch {
+            val recurringTaskId = task.recurringTaskId ?: return@launch
+            val instanceDate = task.instanceDate ?: return@launch
+
+            // Set endDate on template to day before this instance
+            val template = recurringTaskRepository.getById(recurringTaskId) ?: return@launch
+            recurringTaskRepository.update(
+                template.copy(endDate = instanceDate.minusDays(1))
+            )
+
+            // Collect all future instances and their blocks for calendar cleanup
+            val futureInstances = taskRepository.getByRecurringTaskId(recurringTaskId)
+                .filter { it.instanceDate != null && !it.instanceDate.isBefore(instanceDate) }
+
+            for (instance in futureInstances) {
+                syncManager.deleteTaskEvents(instance.id)
+            }
+
+            // Delete future task instances
+            taskRepository.deleteByRecurringTaskIdFromDate(recurringTaskId, instanceDate)
+
+            _recurringDeleteTask.value = null
+            _recurringDeleteTemplate.value = null
+        }
+    }
+
+    fun deleteEntireRecurringTask(task: Task) {
+        viewModelScope.launch {
+            val recurringTaskId = task.recurringTaskId ?: return@launch
+
+            // 1. Collect all instances and delete their calendar events
+            val allInstances = taskRepository.getByRecurringTaskId(recurringTaskId)
+            for (instance in allInstances) {
+                syncManager.deleteTaskEvents(instance.id)
+            }
+
+            // 2. Explicitly delete all task instances (no FK CASCADE from tasks → recurring_tasks)
+            taskRepository.deleteByRecurringTaskIdFromDate(recurringTaskId, LocalDate.MIN)
+
+            // 3. Delete template — CASCADE deletes exceptions
+            val template = recurringTaskRepository.getById(recurringTaskId) ?: return@launch
+            recurringTaskRepository.delete(template)
+
+            _recurringDeleteTask.value = null
+            _recurringDeleteTemplate.value = null
         }
     }
 

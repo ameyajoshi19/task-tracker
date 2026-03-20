@@ -72,7 +72,7 @@ fun TaskListScreen(
             text = { Text("Delete \"${taskToDelete!!.task.title}\"? This will also remove the calendar event.") },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.deleteTask(taskToDelete!!.task)
+                    viewModel.deleteTask(taskToDelete!!)
                     taskToDelete = null
                 }) {
                     Text("Delete", color = SortdColors.deadlineWarning)
