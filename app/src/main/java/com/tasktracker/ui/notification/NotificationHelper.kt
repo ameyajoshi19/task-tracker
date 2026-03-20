@@ -25,6 +25,8 @@ class NotificationHelper @Inject constructor(
         const val CHANNEL_DEADLINE = "deadline_alerts"
         const val NOTIFICATION_ID_RESCHEDULE = 1001
         const val NOTIFICATION_ID_DEADLINE = 1002
+        const val CHANNEL_DAILY_SUMMARY = "daily_summary"
+        const val NOTIFICATION_ID_DAILY_SUMMARY = 1003
     }
 
     fun createChannels() {
@@ -44,9 +46,18 @@ class NotificationHelper @Inject constructor(
             description = "Notifications when a task can't be scheduled before its deadline"
         }
 
+        val dailySummaryChannel = NotificationChannel(
+            CHANNEL_DAILY_SUMMARY,
+            "Daily Summary",
+            NotificationManager.IMPORTANCE_HIGH,
+        ).apply {
+            description = "Morning notification with your scheduled tasks for the day"
+        }
+
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(rescheduleChannel)
         manager.createNotificationChannel(deadlineChannel)
+        manager.createNotificationChannel(dailySummaryChannel)
     }
 
     fun showRescheduleProposal(taskCount: Int) {
@@ -96,6 +107,36 @@ class NotificationHelper @Inject constructor(
 
         NotificationManagerCompat.from(context)
             .notify(NOTIFICATION_ID_DEADLINE + taskId.toInt(), notification)
+    }
+
+    fun showDailySummary(taskCount: Int) {
+        if (!hasPermission()) return
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val body = if (taskCount == 1) {
+            "You have 1 task lined up. Let's get it done!"
+        } else {
+            "You have $taskCount tasks lined up. Let's get them done!"
+        }
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_DAILY_SUMMARY)
+            .setSmallIcon(android.R.drawable.ic_menu_agenda)
+            .setContentTitle("Ready to crush it today?")
+            .setContentText(body)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        NotificationManagerCompat.from(context)
+            .notify(NOTIFICATION_ID_DAILY_SUMMARY, notification)
     }
 
     private fun hasPermission(): Boolean {
