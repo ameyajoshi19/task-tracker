@@ -2,6 +2,13 @@ package com.tasktracker.domain.scheduler
 
 import com.tasktracker.domain.model.Task
 
+/**
+ * Orders tasks for the scheduling algorithm using a three-level sort:
+ * 1. Eisenhower quadrant priority (Q1 urgent+important first, Q4 last).
+ * 2. Within the same quadrant, tasks with a deadline come before those without; among tasks that
+ *    both have deadlines, the nearer deadline wins.
+ * 3. Tie-breaker: earlier [Task.createdAt] first (first-in, first-scheduled).
+ */
 class TaskPriorityComparator : Comparator<Task> {
 
     override fun compare(a: Task, b: Task): Int {

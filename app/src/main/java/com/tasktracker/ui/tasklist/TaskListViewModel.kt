@@ -36,6 +36,14 @@ data class TaskListUiState(
     val recurringDeleteTemplate: RecurringTask? = null,
 )
 
+/**
+ * Drives the main task list screen.
+ *
+ * Derives [uiState] reactively from [TaskRepository.observeAllWithScheduleInfo], layered with
+ * ephemeral UI state (reschedule errors, loading indicators, recurring-delete dialog state) via
+ * [combine]. Persisted task data comes through Room's Flow; ephemeral state lives in
+ * [MutableStateFlow]s so the combined state is always up to date without manual refreshes.
+ */
 @HiltViewModel
 class TaskListViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
@@ -196,6 +204,11 @@ class TaskListViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Moves [taskId] to a new time slot, treating its current slot as blocked so the scheduler
+     * finds a genuinely different window. The old blocks and calendar events are deleted before
+     * inserting new ones; the task ID is preserved so the UI item doesn't flash.
+     */
     fun rescheduleTask(taskId: Long) {
         viewModelScope.launch {
             _rescheduleError.value = null

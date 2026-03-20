@@ -5,6 +5,11 @@ import com.tasktracker.domain.model.TimeSlot
 import com.tasktracker.domain.model.UserAvailability
 import java.time.*
 
+/**
+ * Computes free time windows by subtracting busy periods from the user's availability windows.
+ * Given a set of recurring daily [UserAvailability] entries and a list of already-occupied
+ * [TimeSlot]s, it returns the contiguous free slots available for scheduling across a date range.
+ */
 class SlotFinder {
 
     fun findAvailableSlots(

@@ -19,6 +19,16 @@ import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Implements [CalendarRepository] against the Google Calendar REST API.
+ *
+ * Each method builds a short-lived [Calendar] service from the current OAuth credential, so
+ * token refresh is handled transparently by the Google API client library. All network calls are
+ * dispatched on [Dispatchers.IO].
+ *
+ * The "task calendar" (a dedicated Google Calendar owned by the app) is resolved lazily: the
+ * stored calendar ID is verified on first use and recreated if it was deleted externally.
+ */
 @Singleton
 class GoogleCalendarApiClient @Inject constructor(
     private val authManager: GoogleAuthManager,

@@ -9,6 +9,11 @@ sealed class ValidationResult {
     data class Invalid(val reason: String) : ValidationResult()
 }
 
+/**
+ * Validates a [Task] before it is persisted or submitted for scheduling. Enforces business rules
+ * around duration bounds and, for non-splittable tasks, ensures the duration can actually fit
+ * within at least one of the user's enabled availability windows.
+ */
 class TaskValidator {
 
     fun validate(task: Task, availability: List<UserAvailability>): ValidationResult {

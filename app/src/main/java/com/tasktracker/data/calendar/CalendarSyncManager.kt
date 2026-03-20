@@ -6,6 +6,15 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Orchestrates write operations between the local database and Google Calendar.
+ *
+ * This class is the single point of truth for calendar mutations: creating, updating, and
+ * deleting events. It handles transient network failures by falling back to an offline queue
+ * ([SyncOperationRepository]) that [processPendingOperations] drains when connectivity is
+ * restored. Operations are designed to be idempotent — a failed create cleans up any
+ * partially-created calendar event before enqueuing the retry.
+ */
 @Singleton
 class CalendarSyncManager @Inject constructor(
     private val calendarRepository: CalendarRepository,
@@ -16,6 +25,11 @@ class CalendarSyncManager @Inject constructor(
     private suspend fun getTaskCalendarId(): String =
         calendarRepository.getOrCreateTaskCalendar()
 
+    /**
+     * Creates a Google Calendar event for [block] and stores the resulting event ID back on the
+     * block. If the calendar event is created but the local DB update fails, the orphaned event is
+     * deleted to avoid duplicates — both sides of the failure are enqueued for retry.
+     */
     suspend fun pushNewBlock(block: ScheduledBlock) {
         val task = taskRepository.getById(block.taskId) ?: return
         val calendarId = try {
@@ -41,6 +55,10 @@ class CalendarSyncManager @Inject constructor(
         }
     }
 
+    /**
+     * Updates all calendar events for [taskId] to reflect a completed state. Blocks without an
+     * associated event ID are silently skipped; network failures are queued for later replay.
+     */
     suspend fun markTaskCompleted(taskId: Long) {
         val task = taskRepository.getById(taskId) ?: return
         val blocks = blockRepository.getByTaskId(taskId)
@@ -69,6 +87,10 @@ class CalendarSyncManager @Inject constructor(
         }
     }
 
+    /**
+     * Deletes all Google Calendar events associated with [taskId]. Called before rescheduling or
+     * permanent task deletion to prevent stale events from remaining visible in the user's calendar.
+     */
     suspend fun deleteTaskEvents(taskId: Long) {
         val blocks = blockRepository.getByTaskId(taskId)
         val calendarId = try {

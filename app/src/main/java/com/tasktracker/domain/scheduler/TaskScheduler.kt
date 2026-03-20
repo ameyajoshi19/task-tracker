@@ -4,6 +4,13 @@ import com.tasktracker.domain.model.*
 import java.time.*
 import java.time.temporal.ChronoUnit
 
+/**
+ * Core scheduling engine that assigns tasks to calendar time using a slot-centric best-fit
+ * algorithm. Available time slots are iterated chronologically; each slot is filled with the
+ * highest-priority task (by [TaskPriorityComparator]) whose duration fits within that slot.
+ * This maximises slot utilisation — a 1-hour slot receives a 1-hour task even when a
+ * higher-priority 2-hour task exists and cannot yet fit.
+ */
 class TaskScheduler(
     private val priorityComparator: TaskPriorityComparator,
     private val slotFinder: SlotFinder,
@@ -13,6 +20,19 @@ class TaskScheduler(
         private const val DEADLINE_PRESSURE_THRESHOLD = 0.25
     }
 
+    /**
+     * Schedules [tasks] into available time between [startDate] and [endDate], respecting
+     * existing calendar commitments and user availability windows.
+     *
+     * @param tasks Tasks with status PENDING or SCHEDULED to be placed; others are ignored.
+     * @param existingBlocks Already-confirmed or completed blocks treated as busy time.
+     * @param availability Recurring daily windows during which tasks may be scheduled.
+     * @param busySlots External busy periods (e.g., Google Calendar events) to avoid.
+     * @param zoneId Time zone used to interpret availability windows and snap to clean boundaries.
+     * @return [SchedulingResult.Scheduled] on full success, [SchedulingResult.DeadlineAtRisk] if a
+     *   deadline-bearing task cannot be placed before its deadline, or
+     *   [SchedulingResult.NoSlotsAvailable] if any task cannot be placed at all.
+     */
     fun schedule(
         tasks: List<Task>,
         existingBlocks: List<ScheduledBlock>,
@@ -186,6 +206,22 @@ class TaskScheduler(
         return SchedulingResult.Scheduled(resultBlocks)
     }
 
+    /**
+     * Attempts to schedule [newTask], displacing lower-priority blocks when necessary.
+     *
+     * First tries to fit [newTask] without touching existing blocks. If that succeeds but deadline
+     * pressure is high (task duration ≥ 25 % of time remaining until deadline), it speculatively
+     * reshuffles lower-priority blocks to find an earlier slot and returns
+     * [SchedulingResult.NeedsReschedule] for user confirmation. If [newTask] cannot fit at all,
+     * lower-priority blocks are removed and their tasks are re-scheduled around the new task's
+     * blocks; any tasks that cannot be re-placed are reported as displaced.
+     *
+     * @param newTask The task being added that may trigger conflict resolution.
+     * @param allTasks Full task list, used to identify and reschedule displaced tasks.
+     * @return [SchedulingResult.Scheduled] when no conflict arises,
+     *   [SchedulingResult.NeedsReschedule] when blocks must move (proposed, pending confirmation),
+     *   or a failure variant when no solution is found.
+     */
     fun scheduleWithConflictResolution(
         newTask: Task,
         allTasks: List<Task>,

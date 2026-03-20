@@ -7,6 +7,17 @@ import com.tasktracker.data.local.converter.Converters
 import com.tasktracker.data.local.dao.*
 import com.tasktracker.data.local.entity.*
 
+/**
+ * Room database for the app. Current schema version: **4**.
+ *
+ * Migration history:
+ * - 1→2: Added `pending_sync_operations` table for offline queue support.
+ * - 2→3: Deduplicated `calendar_selections` rows and added a unique index on `googleCalendarId`.
+ * - 3→4: Added `recurring_tasks` and `recurring_task_exceptions` tables; extended `tasks` with
+ *   `recurringTaskId`, `instanceDate`, and `fixedTime` columns to link instances to their
+ *   template. SQLite's lack of ALTER TABLE … ADD FOREIGN KEY means the FK is enforced at the
+ *   app level only; an index is added to keep instance-by-template queries fast.
+ */
 @Database(
     entities = [
         TaskEntity::class,

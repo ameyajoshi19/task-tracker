@@ -17,6 +17,25 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
+/**
+ * Background worker that keeps the app's scheduled blocks in sync with Google Calendar.
+ *
+ * Executed by WorkManager on a periodic schedule and on-demand after task saves. The sync
+ * flow is:
+ * 1. Drain any queued offline operations ([CalendarSyncManager.processPendingOperations]).
+ * 2. Verify the app's task calendar still exists; recreate and re-push all blocks if it was
+ *    deleted externally.
+ * 3. Detect external changes to task calendar events (deletions and time moves) and update
+ *    local block state accordingly.
+ * 4. Fetch fresh free/busy data from the user's other enabled calendars (excluding the task
+ *    calendar itself to avoid false conflicts with the app's own events).
+ * 5. Check whether any confirmed block now overlaps an external busy slot.
+ * 6. If conflicts or cancellations were detected, re-run the scheduler over a 14-day window.
+ *    Propose displacement to the user when automatic re-slotting would move an existing task.
+ * 7. Persist the last sync timestamp.
+ *
+ * Retries up to 3 times on transient failures before marking the run as failed.
+ */
 @HiltWorker
 class CalendarSyncWorker @AssistedInject constructor(
     @Assisted appContext: Context,

@@ -4,8 +4,24 @@ package com.tasktracker.domain.scheduler
 import com.tasktracker.domain.model.*
 import java.time.LocalDate
 
+/**
+ * Materialises concrete [Task] instances from a [RecurringTask] template for a given date window.
+ * Acts as the bridge between the recurrence template and the scheduling engine, which operates
+ * only on individual task instances.
+ */
 class RecurrenceExpander {
 
+    /**
+     * Generates new [Task] instances for [recurringTask] within [[windowStart], [windowEnd]).
+     *
+     * Skips dates covered by [exceptions] (user-cancelled occurrences) and dates for which
+     * [existingInstances] already exist, ensuring idempotent expansion on repeated calls.
+     *
+     * @param recurringTask Template defining the recurrence pattern and task properties.
+     * @param exceptions Dates on which no instance should be generated.
+     * @param existingInstances Previously persisted instances used to avoid duplicates.
+     * @return New (unsaved) task instances ready to be persisted and scheduled.
+     */
     fun expand(
         recurringTask: RecurringTask,
         exceptions: List<RecurringTaskException>,

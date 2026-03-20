@@ -4,6 +4,18 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 
+/**
+ * Core domain entity representing a single unit of schedulable work.
+ *
+ * @property splittable When true, the task may be broken across multiple time blocks with a
+ *   minimum block size of 30 minutes, allowing partial progress across separate slots.
+ * @property recurringTaskId ID of the [RecurringTask] template that generated this instance,
+ *   or null for one-off tasks.
+ * @property instanceDate The specific calendar date this instance represents within a recurring
+ *   series; null for non-recurring tasks.
+ * @property fixedTime When set, the task must start at this exact local time rather than being
+ *   placed freely within an availability window.
+ */
 data class Task(
     val id: Long = 0,
     val title: String,

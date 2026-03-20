@@ -49,6 +49,20 @@ data class TaskEditUiState(
     val fixedTime: LocalTime? = null,
 )
 
+/**
+ * Manages state for the task create/edit screen.
+ *
+ * For one-off tasks the save flow is: validate → gather scheduling inputs → run the scheduler
+ * against in-memory data → only persist to Room if scheduling succeeds. This avoids orphaned
+ * PENDING tasks when the calendar is full.
+ *
+ * Recurring tasks follow a different path: the template ([RecurringTask]) is persisted first,
+ * instances are expanded via [RecurrenceExpander], fixed-time instances are placed directly as
+ * blocks, and flexible instances are each scheduled individually with conflict resolution.
+ *
+ * When editing an existing task, the task's own blocks and free/busy slots are excluded from the
+ * scheduling inputs so the scheduler doesn't treat the current slot as already occupied.
+ */
 @HiltViewModel
 class TaskEditViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -171,6 +185,7 @@ class TaskEditViewModel @Inject constructor(
 
     fun save() {
         val state = _uiState.value
+        // Quick synchronous guard before launching a coroutine
         if (state.title.isBlank()) {
             _uiState.update { it.copy(validationError = "Title is required.") }
             return
@@ -179,6 +194,7 @@ class TaskEditViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
 
+            // --- Recurring task branch ---
             if (state.isRecurring) {
                 val availabilityList = availabilityRepository.getAll()
                 val today = LocalDate.now()
@@ -320,6 +336,7 @@ class TaskEditViewModel @Inject constructor(
                 return@launch
             }
 
+            // --- One-off task: validation ---
             val task = Task(
                 id = if (taskId != -1L) taskId else 0,
                 title = state.title.trim(),
@@ -338,6 +355,7 @@ class TaskEditViewModel @Inject constructor(
                 return@launch
             }
 
+            // --- Scheduling: gather inputs before persisting to keep DB clean on failure ---
             // Gather scheduling inputs BEFORE persisting
             val allTasks = taskRepository.getByStatuses(
                 listOf(TaskStatus.PENDING, TaskStatus.SCHEDULED)
@@ -383,7 +401,7 @@ class TaskEditViewModel @Inject constructor(
                 busySlots
             }
 
-            // Run scheduler with in-memory task (not yet persisted)
+            // Run scheduler with in-memory task (not yet persisted) — persist only on success
             val result = taskScheduler.scheduleWithConflictResolution(
                 newTask = task,
                 allTasks = allTasks,
@@ -398,6 +416,7 @@ class TaskEditViewModel @Inject constructor(
 
             appPreferences.setLastSyncTimestamp(Instant.now())
 
+            // --- Calendar sync: push new blocks after successful persistence ---
             when (result) {
                 is SchedulingResult.Scheduled -> {
                     // Scheduling succeeded — now persist

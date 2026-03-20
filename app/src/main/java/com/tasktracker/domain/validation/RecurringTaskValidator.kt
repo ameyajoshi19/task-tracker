@@ -6,6 +6,11 @@ import com.tasktracker.domain.model.UserAvailability
 import java.time.Duration
 import java.time.LocalDate
 
+/**
+ * Validates a [RecurringTask] template before it is persisted. In addition to the duration rules
+ * shared with [TaskValidator], it checks recurrence-specific constraints: interval length, start
+ * date must not be in the past on creation, and end date must follow start date.
+ */
 class RecurringTaskValidator {
 
     fun validate(
