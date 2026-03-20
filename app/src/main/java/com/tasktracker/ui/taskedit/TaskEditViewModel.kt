@@ -8,6 +8,7 @@ import com.tasktracker.data.preferences.AppPreferences
 import com.tasktracker.domain.model.*
 import com.tasktracker.domain.repository.*
 import com.tasktracker.domain.scheduler.*
+import com.tasktracker.domain.validation.RecurringTaskValidator
 import com.tasktracker.domain.validation.TaskValidator
 import com.tasktracker.domain.validation.ValidationResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,6 +18,7 @@ import com.tasktracker.ui.components.suggestDuration
 import com.tasktracker.ui.components.suggestQuadrant
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
@@ -39,6 +41,12 @@ data class TaskEditUiState(
     val suggestedDurationKeyword: String? = null,
     val suggestedQuadrant: Quadrant? = null,
     val suggestedQuadrantReason: String? = null,
+    val isRecurring: Boolean = false,
+    val intervalDays: Int = 1,
+    val startDate: LocalDate = LocalDate.now(),
+    val endDate: LocalDate? = null,
+    val isFixedTime: Boolean = false,
+    val fixedTime: LocalTime? = null,
 )
 
 @HiltViewModel
@@ -53,6 +61,10 @@ class TaskEditViewModel @Inject constructor(
     private val taskScheduler: TaskScheduler,
     private val taskValidator: TaskValidator,
     private val appPreferences: AppPreferences,
+    private val recurringTaskRepository: RecurringTaskRepository,
+    private val recurringTaskExceptionRepository: RecurringTaskExceptionRepository,
+    private val recurrenceExpander: RecurrenceExpander,
+    private val recurringTaskValidator: RecurringTaskValidator,
 ) : ViewModel() {
 
     private val taskId: Long = savedStateHandle.get<Long>("taskId") ?: -1L
@@ -133,6 +145,30 @@ class TaskEditViewModel @Inject constructor(
     fun updateDayPreference(pref: DayPreference) { _uiState.update { it.copy(dayPreference = pref) } }
     fun updateSplittable(splittable: Boolean) { _uiState.update { it.copy(splittable = splittable, validationError = null) } }
 
+    fun updateRecurring(isRecurring: Boolean) {
+        _uiState.update { it.copy(isRecurring = isRecurring) }
+    }
+
+    fun updateIntervalDays(interval: Int) {
+        _uiState.update { it.copy(intervalDays = interval) }
+    }
+
+    fun updateStartDate(date: LocalDate) {
+        _uiState.update { it.copy(startDate = date) }
+    }
+
+    fun updateEndDate(date: LocalDate?) {
+        _uiState.update { it.copy(endDate = date) }
+    }
+
+    fun updateFixedTime(isFixed: Boolean) {
+        _uiState.update { it.copy(isFixedTime = isFixed, fixedTime = if (isFixed) it.fixedTime ?: LocalTime.of(9, 0) else null) }
+    }
+
+    fun updateFixedTimeValue(time: LocalTime) {
+        _uiState.update { it.copy(fixedTime = time) }
+    }
+
     fun save() {
         val state = _uiState.value
         if (state.title.isBlank()) {
@@ -142,6 +178,52 @@ class TaskEditViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
+
+            if (state.isRecurring) {
+                val availabilityList = availabilityRepository.getAll()
+                val today = LocalDate.now()
+                val recurringTask = RecurringTask(
+                    title = state.title.trim(),
+                    description = state.description.trim(),
+                    estimatedDurationMinutes = state.durationMinutes,
+                    quadrant = state.quadrant,
+                    dayPreference = state.dayPreference,
+                    splittable = state.splittable,
+                    intervalDays = state.intervalDays,
+                    startDate = state.startDate,
+                    endDate = state.endDate,
+                    fixedTime = if (state.isFixedTime) state.fixedTime else null,
+                )
+
+                val validationResult = recurringTaskValidator.validate(
+                    recurringTask, availabilityList, today = today,
+                )
+                if (validationResult is ValidationResult.Invalid) {
+                    _uiState.update { it.copy(validationError = validationResult.reason, isSaving = false) }
+                    return@launch
+                }
+
+                // Save the template
+                val templateId = recurringTaskRepository.insert(recurringTask)
+
+                // Expand instances for the scheduling window
+                val windowEnd = today.plusDays(14)
+                val instances = recurrenceExpander.expand(
+                    recurringTask = recurringTask.copy(id = templateId),
+                    exceptions = emptyList(),
+                    existingInstances = emptyList(),
+                    windowStart = today,
+                    windowEnd = windowEnd,
+                )
+
+                // Persist instances
+                for (instance in instances) {
+                    taskRepository.insert(instance)
+                }
+
+                _uiState.update { it.copy(savedSuccessfully = true, isSaving = false) }
+                return@launch
+            }
 
             val task = Task(
                 id = if (taskId != -1L) taskId else 0,
