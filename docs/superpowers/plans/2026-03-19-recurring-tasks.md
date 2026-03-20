@@ -2067,17 +2067,21 @@ git commit -m "feat: integrate recurring task creation in TaskEditViewModel"
 
 ```kotlin
 val recurringDeleteTask: TaskWithScheduleInfo? = null,
+val recurringDeleteTemplate: RecurringTask? = null,
 ```
 
 - [ ] **Step 2: Add methods for recurring deletion**
 
 ```kotlin
 fun showRecurringDeleteDialog(task: TaskWithScheduleInfo) {
-    _uiState.update { it.copy(recurringDeleteTask = task) }
+    viewModelScope.launch {
+        val template = task.recurringTaskId?.let { recurringTaskRepository.getById(it) }
+        _uiState.update { it.copy(recurringDeleteTask = task, recurringDeleteTemplate = template) }
+    }
 }
 
 fun dismissRecurringDeleteDialog() {
-    _uiState.update { it.copy(recurringDeleteTask = null) }
+    _uiState.update { it.copy(recurringDeleteTask = null, recurringDeleteTemplate = null) }
 }
 
 fun deleteRecurringInstance(task: Task) {
@@ -2094,7 +2098,7 @@ fun deleteRecurringInstance(task: Task) {
         syncManager.deleteTaskEvents(task.id)
         taskRepository.delete(task)
 
-        _uiState.update { it.copy(recurringDeleteTask = null) }
+        _uiState.update { it.copy(recurringDeleteTask = null, recurringDeleteTemplate = null) }
     }
 }
 
@@ -2120,7 +2124,7 @@ fun deleteRecurringInstanceAndFuture(task: Task) {
         // Delete future task instances (cascade deletes blocks)
         taskRepository.deleteByRecurringTaskIdFromDate(recurringTaskId, instanceDate)
 
-        _uiState.update { it.copy(recurringDeleteTask = null) }
+        _uiState.update { it.copy(recurringDeleteTask = null, recurringDeleteTemplate = null) }
     }
 }
 ```
@@ -2132,17 +2136,21 @@ fun deleteEntireRecurringTask(task: Task) {
     viewModelScope.launch {
         val recurringTaskId = task.recurringTaskId ?: return@launch
 
-        // IMPORTANT: Collect all data BEFORE cascade delete
+        // 1. Collect all instances and delete their calendar events
         val allInstances = taskRepository.getByRecurringTaskId(recurringTaskId)
         for (instance in allInstances) {
             syncManager.deleteTaskEvents(instance.id)
         }
 
-        // Delete template — CASCADE deletes all instances, blocks, exceptions at SQLite level
+        // 2. Explicitly delete all task instances (no FK CASCADE from tasks → recurring_tasks
+        //    since SQLite can't add FKs to existing tables via ALTER TABLE)
+        taskRepository.deleteByRecurringTaskIdFromDate(recurringTaskId, LocalDate.MIN)
+
+        // 3. Delete template — CASCADE deletes exceptions (recurring_task_exceptions has real FK)
         val template = recurringTaskRepository.getById(recurringTaskId) ?: return@launch
         recurringTaskRepository.delete(template)
 
-        _uiState.update { it.copy(recurringDeleteTask = null) }
+        _uiState.update { it.copy(recurringDeleteTask = null, recurringDeleteTemplate = null) }
     }
 }
 ```
@@ -2225,12 +2233,12 @@ In the task list screen, when rendering task cards, check `taskInfo.recurringTas
 
 ```kotlin
 val recurringDeleteTask = uiState.recurringDeleteTask
-if (recurringDeleteTask != null) {
+val recurringDeleteTemplate = uiState.recurringDeleteTemplate
+if (recurringDeleteTask != null && recurringDeleteTemplate != null) {
     val task = recurringDeleteTask.task
-    val recurringTask = // fetch from repository or pass interval through TaskWithScheduleInfo
     RecurringDeleteDialog(
         taskTitle = task.title,
-        intervalDays = recurringDeleteTask.intervalDays, // Add intervalDays to TaskWithScheduleInfo or fetch from ViewModel
+        intervalDays = recurringDeleteTemplate.intervalDays,
         instanceDate = task.instanceDate ?: LocalDate.now(),
         onChoice = { choice ->
             when (choice) {
