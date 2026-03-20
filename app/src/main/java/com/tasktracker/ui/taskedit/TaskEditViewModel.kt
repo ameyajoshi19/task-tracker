@@ -216,9 +216,104 @@ class TaskEditViewModel @Inject constructor(
                     windowEnd = windowEnd,
                 )
 
-                // Persist instances
-                for (instance in instances) {
-                    taskRepository.insert(instance)
+                // Persist instances and get IDs
+                val persistedInstances = instances.map { instance ->
+                    val instanceId = taskRepository.insert(instance)
+                    instance.copy(id = instanceId)
+                }
+
+                // Partition into fixed-time and flexible
+                val (fixedTimeInstances, flexibleInstances) = persistedInstances.partition { it.fixedTime != null }
+
+                val zoneId = ZoneId.systemDefault()
+
+                // Place fixed-time instances as busy slots
+                val fixedTimeSlots = fixedTimeInstances.mapNotNull { instance ->
+                    val date = instance.instanceDate ?: return@mapNotNull null
+                    val time = instance.fixedTime ?: return@mapNotNull null
+                    val start = date.atTime(time).atZone(zoneId).toInstant()
+                    val end = start.plus(instance.estimatedDurationMinutes.toLong(), ChronoUnit.MINUTES)
+                    TimeSlot(startTime = start, endTime = end)
+                }
+
+                // Create ScheduledBlocks for fixed-time instances directly
+                for (instance in fixedTimeInstances) {
+                    val date = instance.instanceDate ?: continue
+                    val time = instance.fixedTime ?: continue
+                    val start = date.atTime(time).atZone(zoneId).toInstant()
+                    val end = start.plus(instance.estimatedDurationMinutes.toLong(), ChronoUnit.MINUTES)
+                    val block = ScheduledBlock(taskId = instance.id, startTime = start, endTime = end)
+                    val blockId = blockRepository.insert(block)
+                    taskRepository.updateStatus(instance.id, TaskStatus.SCHEDULED)
+                    syncManager.pushNewBlock(block.copy(id = blockId))
+                }
+
+                // Schedule flexible instances through the existing algorithm
+                if (flexibleInstances.isNotEmpty()) {
+                    val allTasks = taskRepository.getByStatuses(
+                        listOf(TaskStatus.PENDING, TaskStatus.SCHEDULED)
+                    )
+                    val existingBlocks = blockRepository.getByStatuses(
+                        listOf(BlockStatus.CONFIRMED, BlockStatus.COMPLETED)
+                    )
+                    val enabledCalendars = calendarSelectionRepository.getEnabled()
+                    val busySlots = try {
+                        val now = Instant.now()
+                        val twoWeeksLater = now.plusSeconds(14 * 24 * 3600)
+                        calendarRepository.getFreeBusySlots(
+                            calendarIds = enabledCalendars.map { it.googleCalendarId },
+                            timeMin = now,
+                            timeMax = twoWeeksLater,
+                        )
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
+
+                    val allBusySlots = busySlots + fixedTimeSlots
+
+                    // Schedule each flexible instance through conflict resolution
+                    for (instance in flexibleInstances) {
+                        val result = taskScheduler.scheduleWithConflictResolution(
+                            newTask = instance,
+                            allTasks = allTasks,
+                            existingBlocks = existingBlocks,
+                            availability = availabilityList,
+                            busySlots = allBusySlots,
+                            startDate = today,
+                            endDate = windowEnd,
+                            zoneId = zoneId,
+                            now = Instant.now(),
+                        )
+
+                        when (result) {
+                            is SchedulingResult.Scheduled -> {
+                                val blocksWithTaskId = result.blocks.map { it.copy(taskId = instance.id) }
+                                val insertedIds = blockRepository.insertAll(blocksWithTaskId)
+                                taskRepository.updateStatus(instance.id, TaskStatus.SCHEDULED)
+                                blocksWithTaskId.zip(insertedIds).forEach { (block, id) ->
+                                    syncManager.pushNewBlock(block.copy(id = id))
+                                }
+                            }
+                            is SchedulingResult.NeedsReschedule -> {
+                                val newBlocks = result.newBlocks.map { it.copy(taskId = instance.id) }
+                                val movedBlocks = result.movedBlocks.map { it.second }
+                                val allBlocks = newBlocks + movedBlocks
+                                val insertedIds = blockRepository.insertAll(allBlocks)
+                                taskRepository.updateStatus(instance.id, TaskStatus.SCHEDULED)
+                                allBlocks.zip(insertedIds).forEach { (block, id) ->
+                                    syncManager.pushNewBlock(block.copy(id = id))
+                                }
+                                for ((oldBlock, _) in result.movedBlocks) {
+                                    oldBlock.googleCalendarEventId?.let {
+                                        syncManager.deleteTaskEvents(oldBlock.taskId)
+                                    }
+                                }
+                            }
+                            else -> {
+                                // Instance couldn't be scheduled — leave as PENDING
+                            }
+                        }
+                    }
                 }
 
                 _uiState.update { it.copy(savedSuccessfully = true, isSaving = false) }
