@@ -15,4 +15,5 @@ sealed class Screen(val route: String) {
     data object SettingsCalendars : Screen("settings/calendars")
     data object SettingsSync : Screen("settings/sync")
     data object SettingsTheme : Screen("settings/theme")
+    data object SettingsDailySummary : Screen("settings/daily_summary")
 }

@@ -14,6 +14,7 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -39,6 +40,7 @@ fun SettingsScreen(
     onNavigateToCalendars: () -> Unit,
     onNavigateToSync: () -> Unit,
     onNavigateToTheme: () -> Unit,
+    onNavigateToDailySummary: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -108,6 +110,15 @@ fun SettingsScreen(
                 title = "Theme",
                 subtitle = uiState.themeModeLabel,
                 onClick = onNavigateToTheme,
+            )
+
+            SettingsRow(
+                icon = Icons.Outlined.Notifications,
+                iconColor = Color(0xFFEC4899),
+                tintBg = Color(0xFFEC4899).copy(alpha = 0.15f),
+                title = "Daily Summary",
+                subtitle = uiState.dailySummarySubtitle,
+                onClick = onNavigateToDailySummary,
             )
 
             Spacer(Modifier.height(16.dp))
