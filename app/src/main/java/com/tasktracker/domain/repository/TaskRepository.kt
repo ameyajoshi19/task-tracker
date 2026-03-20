@@ -4,6 +4,7 @@ import com.tasktracker.domain.model.Task
 import com.tasktracker.domain.model.TaskStatus
 import com.tasktracker.domain.model.TaskWithScheduleInfo
 import kotlinx.coroutines.flow.Flow
+import java.time.LocalDate
 
 interface TaskRepository {
     suspend fun insert(task: Task): Long
@@ -15,4 +16,11 @@ interface TaskRepository {
     suspend fun getByStatus(status: TaskStatus): List<Task>
     suspend fun getByStatuses(statuses: List<TaskStatus>): List<Task>
     suspend fun updateStatus(id: Long, status: TaskStatus)
+    suspend fun getByRecurringTaskId(recurringTaskId: Long): List<Task>
+    suspend fun getByRecurringTaskIdAndDateRange(
+        recurringTaskId: Long,
+        startDate: LocalDate,
+        endDate: LocalDate,
+    ): List<Task>
+    suspend fun deleteByRecurringTaskIdFromDate(recurringTaskId: Long, fromDate: LocalDate)
 }

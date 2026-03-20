@@ -9,6 +9,7 @@ import com.tasktracker.domain.repository.TaskRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.Instant
+import java.time.LocalDate
 import javax.inject.Inject
 
 class TaskRepositoryImpl @Inject constructor(
@@ -45,12 +46,17 @@ class TaskRepositoryImpl @Inject constructor(
                         splittable = t.splittable,
                         status = t.status,
                         recurringPattern = t.recurringPattern,
+                        recurringTaskId = t.recurringTaskId,
+                        instanceDate = t.instanceDate,
+                        fixedTime = t.fixedTime,
                         createdAt = t.createdAt,
                         updatedAt = t.updatedAt,
                     ),
                     nextBlockStart = t.nextBlockStart,
                     nextBlockEnd = t.nextBlockEnd,
                     blockCount = t.blockCount,
+                    recurringTaskId = t.recurringTaskId,
+                    instanceDate = t.instanceDate,
                 )
             }
         }
@@ -63,4 +69,17 @@ class TaskRepositoryImpl @Inject constructor(
 
     override suspend fun updateStatus(id: Long, status: TaskStatus) =
         taskDao.updateStatus(id, status, Instant.now().toEpochMilli())
+
+    override suspend fun getByRecurringTaskId(recurringTaskId: Long): List<Task> =
+        taskDao.getByRecurringTaskId(recurringTaskId).map { it.toDomain() }
+
+    override suspend fun getByRecurringTaskIdAndDateRange(
+        recurringTaskId: Long,
+        startDate: LocalDate,
+        endDate: LocalDate,
+    ): List<Task> =
+        taskDao.getByRecurringTaskIdAndDateRange(recurringTaskId, startDate, endDate).map { it.toDomain() }
+
+    override suspend fun deleteByRecurringTaskIdFromDate(recurringTaskId: Long, fromDate: LocalDate) =
+        taskDao.deleteByRecurringTaskIdFromDate(recurringTaskId, fromDate)
 }
