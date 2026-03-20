@@ -3,6 +3,7 @@ package com.tasktracker.data.calendar
 import com.google.api.client.util.DateTime
 import com.google.api.services.calendar.model.Event
 import com.google.api.services.calendar.model.EventDateTime
+import com.google.api.services.calendar.model.EventReminder
 import com.tasktracker.domain.model.CalendarEvent
 import com.tasktracker.domain.model.ScheduledBlock
 import java.time.Instant
@@ -28,6 +29,11 @@ class CalendarEventMapper @Inject constructor() {
                 EventDateTime()
                     .setDateTime(DateTime(block.endTime.toEpochMilli()))
                     .setTimeZone("UTC")
+            )
+            .setReminders(
+                Event.Reminders()
+                    .setUseDefault(false)
+                    .setOverrides(listOf(EventReminder().setMethod("popup").setMinutes(10)))
             )
     }
 
