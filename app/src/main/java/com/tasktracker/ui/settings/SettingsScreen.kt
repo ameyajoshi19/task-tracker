@@ -95,6 +95,15 @@ fun SettingsScreen(
             )
 
             SettingsRow(
+                icon = Icons.Outlined.Notifications,
+                iconColor = Color(0xFFF59E0B),
+                tintBg = Color(0xFFF59E0B).copy(alpha = 0.15f),
+                title = "Daily Summary",
+                subtitle = uiState.dailySummarySubtitle,
+                onClick = onNavigateToDailySummary,
+            )
+
+            SettingsRow(
                 icon = Icons.Outlined.Sync,
                 iconColor = Color(0xFFF59E0B),
                 tintBg = Color(0xFFF59E0B).copy(alpha = 0.15f),
@@ -110,15 +119,6 @@ fun SettingsScreen(
                 title = "Theme",
                 subtitle = uiState.themeModeLabel,
                 onClick = onNavigateToTheme,
-            )
-
-            SettingsRow(
-                icon = Icons.Outlined.Notifications,
-                iconColor = Color(0xFFEC4899),
-                tintBg = Color(0xFFEC4899).copy(alpha = 0.15f),
-                title = "Daily Summary",
-                subtitle = uiState.dailySummarySubtitle,
-                onClick = onNavigateToDailySummary,
             )
 
             Spacer(Modifier.height(16.dp))
