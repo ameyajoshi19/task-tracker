@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tasktracker.data.calendar.GoogleAuthManager
 import com.tasktracker.data.preferences.AppPreferences
+import com.tasktracker.data.sync.DailySummaryScheduler
 import com.tasktracker.data.sync.SyncScheduler
 import com.tasktracker.domain.model.CalendarSelection
 import com.tasktracker.domain.model.SyncInterval
@@ -14,6 +15,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
+import java.time.LocalTime
 import javax.inject.Inject
 
 data class SettingsUiState(
@@ -23,6 +25,8 @@ data class SettingsUiState(
     val calendars: List<CalendarSelection> = emptyList(),
     val syncInterval: SyncInterval = SyncInterval.THIRTY_MINUTES,
     val themeMode: String = "auto",
+    val dailySummaryEnabled: Boolean = true,
+    val dailySummaryTime: String = "08:00",
 ) {
     val activeDayCount: Int
         get() = availabilities.filter { it.enabled }.map { it.dayOfWeek }.distinct().size
@@ -30,6 +34,8 @@ data class SettingsUiState(
         get() = calendars.count { it.enabled }
     val themeModeLabel: String
         get() = themeMode.replaceFirstChar { it.uppercase() }
+    val dailySummarySubtitle: String
+        get() = if (dailySummaryEnabled) dailySummaryTime else "Off"
 }
 
 @HiltViewModel
@@ -39,6 +45,7 @@ class SettingsViewModel @Inject constructor(
     private val calendarSelectionRepository: CalendarSelectionRepository,
     private val appPreferences: AppPreferences,
     private val syncScheduler: SyncScheduler,
+    private val dailySummaryScheduler: DailySummaryScheduler,
 ) : ViewModel() {
 
     @Suppress("UNCHECKED_CAST")
@@ -50,8 +57,10 @@ class SettingsViewModel @Inject constructor(
         appPreferences.themeMode,
         appPreferences.taskCalendarId,
         authManager.signedInDisplayName,
+        appPreferences.dailySummaryEnabled,
+        appPreferences.dailySummaryTime,
     ) { values ->
-        // Index: 0=email, 1=availabilities, 2=calendars, 3=interval, 4=theme, 5=taskCalId, 6=displayName
+        // Index: 0=email, 1=availabilities, 2=calendars, 3=interval, 4=theme, 5=taskCalId, 6=displayName, 7=summaryEnabled, 8=summaryTime
         val email = values[0] as String?
         val availabilities = values[1] as List<UserAvailability>
         val allCalendars = values[2] as List<CalendarSelection>
@@ -59,6 +68,8 @@ class SettingsViewModel @Inject constructor(
         val theme = values[4] as String
         val taskCalId = values[5] as String?
         val displayName = values[6] as String?
+        val summaryEnabled = values[7] as Boolean
+        val summaryTime = values[8] as String
 
         val calendars = allCalendars.filter { it.googleCalendarId != taskCalId }
 
@@ -69,6 +80,8 @@ class SettingsViewModel @Inject constructor(
             calendars = calendars,
             syncInterval = interval,
             themeMode = theme,
+            dailySummaryEnabled = summaryEnabled,
+            dailySummaryTime = summaryTime,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -116,6 +129,25 @@ class SettingsViewModel @Inject constructor(
     fun copyToAllDays(dayOfWeek: DayOfWeek) {
         viewModelScope.launch {
             availabilityRepository.copyToAllDays(dayOfWeek)
+        }
+    }
+
+    fun setDailySummaryEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            appPreferences.setDailySummaryEnabled(enabled)
+            if (enabled) {
+                val timeStr = appPreferences.dailySummaryTime.first()
+                dailySummaryScheduler.schedule(LocalTime.parse(timeStr))
+            } else {
+                dailySummaryScheduler.cancel()
+            }
+        }
+    }
+
+    fun setDailySummaryTime(time: String) {
+        viewModelScope.launch {
+            appPreferences.setDailySummaryTime(time)
+            dailySummaryScheduler.schedule(LocalTime.parse(time))
         }
     }
 
