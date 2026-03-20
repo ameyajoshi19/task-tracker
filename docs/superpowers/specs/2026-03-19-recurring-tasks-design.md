@@ -44,9 +44,11 @@ Room entity: `recurring_task_exceptions` table.
 
 - **Add** `recurringTaskId: Long?` — links instance back to its template (null for ad hoc tasks)
 - **Add** `instanceDate: LocalDate?` — which occurrence this represents (null for ad hoc tasks)
-- **Remove** `recurringPattern: String?` — currently unused, replaced by the new model
+- **Keep** `recurringPattern: String?` — currently unused, left in place to avoid destructive SQLite migration (SQLite < 3.35.0 does not support `DROP COLUMN`)
 
-`TaskEntity` updated with corresponding columns. Foreign key from `recurringTaskId` to `recurring_tasks.id` with CASCADE on delete.
+`TaskEntity` updated with new columns. Foreign key from `recurringTaskId` to `recurring_tasks.id` with CASCADE on delete. UNIQUE index on `(recurringTaskId, instanceDate)` to prevent duplicate instances.
+
+**Note:** Generated recurring instances always have `deadline = null`. Recurring tasks do not participate in deadline-pressure logic or `DeadlineAtRisk` results — this is by design since recurring tasks represent ongoing commitments, not deadline-driven work.
 
 ## Recurrence Expander
 
@@ -75,16 +77,24 @@ Pure Kotlin, stateless, no Android dependencies. Generates task instances for a 
 
 `List<Task>` — new instances to persist. The caller (ViewModel or WorkManager) handles persistence.
 
+### Fixed-Time Conflict Detection During Expansion
+
+When the expander generates a fixed-time instance, it must check for conflicts with other fixed-time tasks (recurring or ad hoc) on that date. If a conflict is discovered during expansion (possible when two recurring tasks with different intervals eventually overlap beyond the initial validation window), the conflicting instance is skipped and the user is notified. This is a known limitation of validating only within the current window — acknowledged as an acceptable trade-off since the user is alerted when it occurs.
+
+### `dayPreference` and `intervalDays` Interaction
+
+The expander always generates dates by stepping `intervalDays` regardless of `dayPreference`. The `dayPreference` field is copied to the generated `Task` instance and respected by the scheduler's `SlotFinder` when finding available slots for flexible-time instances. For fixed-time instances, `dayPreference` is informational only — the task is placed at its fixed time regardless of the day.
+
 ## Scheduler Integration
 
 ### Flow
 
 When scheduling is triggered (ViewModel or background sync):
 
-1. **Expand:** For each `RecurringTask`, run `RecurrenceExpander` over the scheduling window (currently `today` to `today + 14 days`). Persist new instances.
+1. **Expand:** For each `RecurringTask`, run `RecurrenceExpander` over the scheduling window (currently `today` to `today + 14 days`). **Persist new instances to the database** so they receive real IDs. This is a hard requirement — unpersisted tasks (id=0) would collide in the scheduler's internal maps.
 2. **Partition:** Separate fixed-time instances (`fixedTime != null`) from all other tasks.
 3. **Place fixed-time instances:** Convert `instanceDate` + `fixedTime` + `estimatedDurationMinutes` into concrete `TimeSlot` objects. Add these to the `busySlots` list. Create `ScheduledBlock` entries for them directly.
-4. **Displace conflicts:** Any existing flexible/ad hoc `ScheduledBlock` that overlaps a fixed-time slot gets cancelled. The displaced task re-enters the pool as PENDING.
+4. **Displace conflicts:** Any existing flexible/ad hoc `ScheduledBlock` that overlaps a fixed-time slot gets cancelled. The displaced task re-enters the pool as PENDING. **This displacement uses the existing `NeedsReschedule` flow** — the user sees a confirmation screen showing which tasks were displaced and their proposed new slots, consistent with the existing conflict resolution UX.
 5. **Run best-fit:** The existing slot-centric best-fit algorithm runs unchanged with the remaining tasks (flexible recurring instances + ad hoc tasks + displaced tasks).
 
 ### Fixed-Time Conflict Detection
@@ -117,10 +127,12 @@ The existing `TaskScheduler.schedule()` and `TaskScheduler.scheduleWithConflictR
 
 ### Delete Entire Recurring Task
 
-1. Delete the `RecurringTask` template
-2. CASCADE deletes all instances (via `recurringTaskId` foreign key), their blocks, and exceptions
-3. Delete Google Calendar events for all affected blocks
+1. **Collect all affected data first:** Query all `Task` instances for this `recurringTaskId`, then all `ScheduledBlock` entries for those tasks, then all Google Calendar event IDs from those blocks.
+2. Delete Google Calendar events for all collected blocks (via `CalendarSyncManager`).
+3. Delete the `RecurringTask` template — CASCADE deletes all instances, their blocks, and exceptions at the SQLite level.
 4. **No rescheduling triggered**
+
+**Important ordering:** Google Calendar event IDs must be collected *before* the CASCADE delete fires, since the CASCADE happens at the SQLite level and does not trigger DAO callbacks or repository logic.
 
 ## UI Design
 
@@ -170,6 +182,7 @@ Material 3 `AlertDialog` style, centered:
 
 - Recurring task instances display a small recurrence indicator to distinguish them from ad hoc tasks
 - The indicator uses the same subtle styling as existing metadata (e.g., block count, next scheduled time)
+- `TaskWithScheduleInfo` is extended with `recurringTaskId: Long?` so the UI can detect recurring instances and show the indicator without additional queries
 
 ## Repository Layer
 
@@ -213,24 +226,36 @@ suspend fun getByRecurringTaskIdAndDateRange(
 ): List<Task>
 ```
 
+## Editing a Recurring Task Template
+
+When a user edits fields on a `RecurringTask` template (e.g., duration, quadrant, title):
+
+- Changes apply only to **newly generated instances** going forward.
+- Already-generated instances (persisted `Task` rows) are not retroactively updated.
+- Already-scheduled blocks are not affected.
+- This is consistent with how Google Calendar handles editing "this and future events" — past instances retain their original properties.
+
+If the user wants to change an already-scheduled instance, they edit the `Task` instance directly (standard task edit flow).
+
 ## Database Migration
 
 Room migration adds:
 - `recurring_tasks` table
 - `recurring_task_exceptions` table
-- `recurring_task_id` and `instance_date` columns to `tasks` table
-- Removes `recurring_pattern` column from `tasks` table
-- Foreign key indices
+- `recurring_task_id` and `instance_date` columns to `tasks` table (both nullable)
+- UNIQUE index on `(recurring_task_id, instance_date)` to prevent duplicate instances
+- Foreign key index on `recurring_task_id`
+- `recurring_pattern` column is **retained** (nullable, unused) to avoid destructive migration
 
 ## Validation
 
 Extend `TaskValidator` or create `RecurringTaskValidator`:
 
 - `intervalDays` must be >= 1
-- `startDate` must not be in the past
+- `startDate` must not be in the past — **this validation applies only at creation time**, not when editing or re-validating existing recurring tasks (whose `startDate` will naturally be in the past after running for a while)
 - `endDate` (if set) must be after `startDate`
 - `estimatedDurationMinutes` follows existing rules (15-480, 5-minute increments)
-- Fixed-time conflict check: no overlapping fixed-time tasks on generated instance dates
+- Fixed-time conflict check: no overlapping fixed-time tasks on generated instance dates within the scheduling window
 
 ## Google Calendar Sync
 
