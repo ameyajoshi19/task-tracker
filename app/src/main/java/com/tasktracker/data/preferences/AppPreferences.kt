@@ -24,6 +24,8 @@ class AppPreferences @Inject constructor(
         private val LAST_SYNC_TIMESTAMP = longPreferencesKey("last_sync_timestamp")
         private val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         private val THEME_MODE = stringPreferencesKey("theme_mode")
+        private val DAILY_SUMMARY_ENABLED = booleanPreferencesKey("daily_summary_enabled")
+        private val DAILY_SUMMARY_TIME = stringPreferencesKey("daily_summary_time")
         private const val STALE_THRESHOLD_MILLIS = 2 * 60 * 60 * 1000L // 2 hours
     }
 
@@ -71,5 +73,19 @@ class AppPreferences @Inject constructor(
 
     suspend fun setThemeMode(mode: String) {
         context.dataStore.edit { it[THEME_MODE] = mode }
+    }
+
+    val dailySummaryEnabled: Flow<Boolean> = context.dataStore.data
+        .map { it[DAILY_SUMMARY_ENABLED] ?: true }
+
+    suspend fun setDailySummaryEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[DAILY_SUMMARY_ENABLED] = enabled }
+    }
+
+    val dailySummaryTime: Flow<String> = context.dataStore.data
+        .map { it[DAILY_SUMMARY_TIME] ?: "08:00" }
+
+    suspend fun setDailySummaryTime(time: String) {
+        context.dataStore.edit { it[DAILY_SUMMARY_TIME] = time }
     }
 }
