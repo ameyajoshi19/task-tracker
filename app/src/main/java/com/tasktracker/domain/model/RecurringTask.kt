@@ -4,19 +4,17 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 
-data class Task(
+data class RecurringTask(
     val id: Long = 0,
     val title: String,
     val description: String = "",
     val estimatedDurationMinutes: Int,
     val quadrant: Quadrant,
-    val deadline: Instant? = null,
     val dayPreference: DayPreference = DayPreference.ANY,
     val splittable: Boolean = false,
-    val status: TaskStatus = TaskStatus.PENDING,
-    val recurringPattern: String? = null,
-    val recurringTaskId: Long? = null,
-    val instanceDate: LocalDate? = null,
+    val intervalDays: Int,
+    val startDate: LocalDate,
+    val endDate: LocalDate? = null,
     val fixedTime: LocalTime? = null,
     val createdAt: Instant = Instant.now(),
     val updatedAt: Instant = Instant.now(),
