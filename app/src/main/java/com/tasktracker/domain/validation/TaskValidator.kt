@@ -1,7 +1,7 @@
 package com.tasktracker.domain.validation
 
+import com.tasktracker.domain.model.AvailabilitySlot
 import com.tasktracker.domain.model.Task
-import com.tasktracker.domain.model.UserAvailability
 import java.time.Duration
 
 sealed class ValidationResult {
@@ -16,7 +16,7 @@ sealed class ValidationResult {
  */
 class TaskValidator {
 
-    fun validate(task: Task, availability: List<UserAvailability>): ValidationResult {
+    fun validate(task: Task, availability: List<AvailabilitySlot>): ValidationResult {
         if (task.estimatedDurationMinutes < 15) {
             return ValidationResult.Invalid(
                 "Duration must be at least 15 minutes."
@@ -33,8 +33,13 @@ class TaskValidator {
             )
         }
         if (!task.splittable) {
-            val longestWindowMinutes = availability
+            val filteredAvailability = availability
                 .filter { it.enabled }
+                .let { enabled ->
+                    val slotType = task.availabilitySlot
+                    if (slotType != null) enabled.filter { it.slotType == slotType } else enabled
+                }
+            val longestWindowMinutes = filteredAvailability
                 .maxOfOrNull {
                     Duration.between(it.startTime, it.endTime).toMinutes()
                 } ?: 0L
@@ -48,4 +53,5 @@ class TaskValidator {
         }
         return ValidationResult.Valid
     }
+
 }

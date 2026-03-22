@@ -20,7 +20,8 @@ class TaskSchedulerConflictTest {
         day: DayOfWeek = DayOfWeek.MONDAY,
         start: LocalTime = LocalTime.of(9, 0),
         end: LocalTime = LocalTime.of(12, 0),
-    ) = UserAvailability(dayOfWeek = day, startTime = start, endTime = end)
+        slotType: AvailabilitySlotType = AvailabilitySlotType.DURING_WORK,
+    ) = AvailabilitySlot(slotType = slotType, dayOfWeek = day, startTime = start, endTime = end, enabled = true)
 
     private fun task(
         id: Long = 1,

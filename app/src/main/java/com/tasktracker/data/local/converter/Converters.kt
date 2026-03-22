@@ -62,4 +62,11 @@ class Converters {
     @TypeConverter
     fun toSyncOperationType(value: String?): SyncOperationType? =
         value?.let { SyncOperationType.valueOf(it) }
+
+    @TypeConverter
+    fun fromAvailabilitySlotType(value: AvailabilitySlotType?): String? = value?.name
+
+    @TypeConverter
+    fun toAvailabilitySlotType(value: String?): AvailabilitySlotType? =
+        value?.let { AvailabilitySlotType.valueOf(it) }
 }

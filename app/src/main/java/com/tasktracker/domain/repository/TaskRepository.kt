@@ -23,4 +23,5 @@ interface TaskRepository {
         endDate: LocalDate,
     ): List<Task>
     suspend fun deleteByRecurringTaskIdFromDate(recurringTaskId: Long, fromDate: LocalDate)
+    suspend fun updateTagByRecurringTaskId(recurringTaskId: Long, tagId: Long?)
 }

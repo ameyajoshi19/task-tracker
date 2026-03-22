@@ -7,21 +7,20 @@ import com.tasktracker.data.calendar.GoogleAuthManager
 import com.tasktracker.data.preferences.AppPreferences
 import com.tasktracker.data.sync.DailySummaryScheduler
 import com.tasktracker.data.sync.SyncScheduler
+import com.tasktracker.domain.model.AvailabilitySlot
 import com.tasktracker.domain.model.CalendarSelection
 import com.tasktracker.domain.model.SyncInterval
-import com.tasktracker.domain.model.UserAvailability
 import com.tasktracker.domain.repository.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.time.DayOfWeek
 import java.time.LocalTime
 import javax.inject.Inject
 
 data class SettingsUiState(
     val email: String? = null,
     val displayName: String? = null,
-    val availabilities: List<UserAvailability> = emptyList(),
+    val availabilities: List<AvailabilitySlot> = emptyList(),
     val calendars: List<CalendarSelection> = emptyList(),
     val syncInterval: SyncInterval = SyncInterval.THIRTY_MINUTES,
     val themeMode: String = "auto",
@@ -41,7 +40,7 @@ data class SettingsUiState(
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val authManager: GoogleAuthManager,
-    private val availabilityRepository: UserAvailabilityRepository,
+    private val availabilitySlotRepository: AvailabilitySlotRepository,
     private val calendarSelectionRepository: CalendarSelectionRepository,
     private val appPreferences: AppPreferences,
     private val syncScheduler: SyncScheduler,
@@ -51,7 +50,7 @@ class SettingsViewModel @Inject constructor(
     @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<SettingsUiState> = combine(
         authManager.signedInEmail,
-        availabilityRepository.observeAll(),
+        availabilitySlotRepository.observeAll(),
         calendarSelectionRepository.observeAll(),
         appPreferences.syncInterval,
         appPreferences.themeMode,
@@ -62,7 +61,7 @@ class SettingsViewModel @Inject constructor(
     ) { values ->
         // Index: 0=email, 1=availabilities, 2=calendars, 3=interval, 4=theme, 5=taskCalId, 6=displayName, 7=summaryEnabled, 8=summaryTime
         val email = values[0] as String?
-        val availabilities = values[1] as List<UserAvailability>
+        val availabilities = values[1] as List<AvailabilitySlot>
         val allCalendars = values[2] as List<CalendarSelection>
         val interval = values[3] as SyncInterval
         val theme = values[4] as String
@@ -89,24 +88,6 @@ class SettingsViewModel @Inject constructor(
         initialValue = SettingsUiState(),
     )
 
-    fun updateAvailability(availability: UserAvailability) {
-        viewModelScope.launch {
-            availabilityRepository.update(availability)
-        }
-    }
-
-    fun addAvailability(availability: UserAvailability) {
-        viewModelScope.launch {
-            availabilityRepository.insert(availability)
-        }
-    }
-
-    fun removeAvailability(availability: UserAvailability) {
-        viewModelScope.launch {
-            availabilityRepository.delete(availability)
-        }
-    }
-
     fun toggleCalendar(calendar: CalendarSelection) {
         viewModelScope.launch {
             calendarSelectionRepository.update(calendar.copy(enabled = !calendar.enabled))
@@ -123,12 +104,6 @@ class SettingsViewModel @Inject constructor(
     fun updateThemeMode(mode: String) {
         viewModelScope.launch {
             appPreferences.setThemeMode(mode)
-        }
-    }
-
-    fun copyToAllDays(dayOfWeek: DayOfWeek) {
-        viewModelScope.launch {
-            availabilityRepository.copyToAllDays(dayOfWeek)
         }
     }
 

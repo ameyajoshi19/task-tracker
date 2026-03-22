@@ -23,7 +23,13 @@ object DatabaseModule {
             TaskTrackerDatabase::class.java,
             "task_tracker.db",
         )
-        .addMigrations(TaskTrackerDatabase.MIGRATION_1_2, TaskTrackerDatabase.MIGRATION_2_3, TaskTrackerDatabase.MIGRATION_3_4)
+        .addMigrations(
+            TaskTrackerDatabase.MIGRATION_1_2,
+            TaskTrackerDatabase.MIGRATION_2_3,
+            TaskTrackerDatabase.MIGRATION_3_4,
+            TaskTrackerDatabase.MIGRATION_4_5,
+            TaskTrackerDatabase.MIGRATION_5_6,
+        )
         .build()
 
     @Provides
@@ -33,7 +39,10 @@ object DatabaseModule {
     fun provideScheduledBlockDao(db: TaskTrackerDatabase): ScheduledBlockDao = db.scheduledBlockDao()
 
     @Provides
-    fun provideUserAvailabilityDao(db: TaskTrackerDatabase): UserAvailabilityDao = db.userAvailabilityDao()
+    fun provideAvailabilitySlotDao(db: TaskTrackerDatabase): AvailabilitySlotDao = db.availabilitySlotDao()
+
+    @Provides
+    fun provideTagDao(db: TaskTrackerDatabase): TagDao = db.tagDao()
 
     @Provides
     fun provideCalendarSelectionDao(db: TaskTrackerDatabase): CalendarSelectionDao = db.calendarSelectionDao()

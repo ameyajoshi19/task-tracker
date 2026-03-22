@@ -2,6 +2,7 @@ package com.tasktracker.data.repository
 
 import com.tasktracker.data.local.dao.TaskDao
 import com.tasktracker.data.local.entity.TaskEntity
+import com.tasktracker.domain.model.AvailabilitySlotType
 import com.tasktracker.domain.model.Task
 import com.tasktracker.domain.model.TaskStatus
 import com.tasktracker.domain.model.TaskWithScheduleInfo
@@ -38,7 +39,6 @@ class TaskRepositoryImpl @Inject constructor(
                     task = Task(
                         id = t.id,
                         title = t.title,
-                        description = t.description,
                         estimatedDurationMinutes = t.estimatedDurationMinutes,
                         quadrant = t.quadrant,
                         deadline = t.deadline,
@@ -49,6 +49,8 @@ class TaskRepositoryImpl @Inject constructor(
                         recurringTaskId = t.recurringTaskId,
                         instanceDate = t.instanceDate,
                         fixedTime = t.fixedTime,
+                        availabilitySlot = t.availabilitySlot?.let { AvailabilitySlotType.valueOf(it) },
+                        tagId = t.tagId,
                         createdAt = t.createdAt,
                         updatedAt = t.updatedAt,
                     ),
@@ -57,6 +59,9 @@ class TaskRepositoryImpl @Inject constructor(
                     blockCount = t.blockCount,
                     recurringTaskId = t.recurringTaskId,
                     instanceDate = t.instanceDate,
+                    tagName = t.tagName,
+                    tagColor = t.tagColor,
+                    availabilitySlot = t.availabilitySlot?.let { AvailabilitySlotType.valueOf(it) },
                 )
             }
         }
@@ -82,4 +87,7 @@ class TaskRepositoryImpl @Inject constructor(
 
     override suspend fun deleteByRecurringTaskIdFromDate(recurringTaskId: Long, fromDate: LocalDate) =
         taskDao.deleteByRecurringTaskIdFromDate(recurringTaskId, fromDate)
+
+    override suspend fun updateTagByRecurringTaskId(recurringTaskId: Long, tagId: Long?) =
+        taskDao.updateTagByRecurringTaskId(recurringTaskId, tagId)
 }

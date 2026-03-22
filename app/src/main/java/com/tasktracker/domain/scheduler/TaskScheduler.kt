@@ -36,7 +36,7 @@ class TaskScheduler(
     fun schedule(
         tasks: List<Task>,
         existingBlocks: List<ScheduledBlock>,
-        availability: List<UserAvailability>,
+        availability: List<AvailabilitySlot>,
         busySlots: List<TimeSlot>,
         startDate: LocalDate,
         endDate: LocalDate,
@@ -79,6 +79,20 @@ class TaskScheduler(
             now = now,
         ).toMutableList()
 
+        // Pre-compute per-slot-type available time slots for availability filtering
+        val slotsByType = AvailabilitySlotType.entries.associateWith { type ->
+            slotFinder.findAvailableSlots(
+                availability = availability,
+                busySlots = allBusySlots,
+                startDate = startDate,
+                endDate = endDate,
+                dayPreference = DayPreference.ANY,
+                zoneId = zoneId,
+                now = now,
+                slotType = type,
+            )
+        }
+
         // Slot-centric best-fit: iterate over slots, fill each with best-fitting task
         val slotsToProcess = allSlots.toMutableList()
         while (slotsToProcess.isNotEmpty() && sortedTasks.any { it.id !in scheduledTaskIds || remainingMinutes.getOrDefault(it.id, 0) > 0 }) {
@@ -97,6 +111,16 @@ class TaskScheduler(
 
                 // Check deadline
                 if (task.deadline != null && slot.startTime >= task.deadline) return@filter false
+
+                // Check availability slot type preference
+                val taskSlotType = task.availabilitySlot
+                if (taskSlotType != null) {
+                    val typeSlots = slotsByType[taskSlotType] ?: return@filter false
+                    val fitsInTypeWindow = typeSlots.any { typeSlot ->
+                        slot.startTime >= typeSlot.startTime && slot.endTime <= typeSlot.endTime
+                    }
+                    if (!fitsInTypeWindow) return@filter false
+                }
 
                 true
             }
@@ -226,7 +250,7 @@ class TaskScheduler(
         newTask: Task,
         allTasks: List<Task>,
         existingBlocks: List<ScheduledBlock>,
-        availability: List<UserAvailability>,
+        availability: List<AvailabilitySlot>,
         busySlots: List<TimeSlot>,
         startDate: LocalDate,
         endDate: LocalDate,

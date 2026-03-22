@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.tasktracker.domain.model.Quadrant
 import com.tasktracker.domain.model.TaskStatus
 import com.tasktracker.domain.model.TaskWithScheduleInfo
+import com.tasktracker.ui.components.TagChip
 import com.tasktracker.ui.theme.SortdColors
 import java.time.Instant
 import java.time.LocalDate
@@ -65,7 +66,16 @@ fun TaskCard(
                 .clip(CircleShape)
                 .background(Brush.linearGradient(listOf(colorStart, colorEnd))),
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(8.dp))
+
+        // Tag chip
+        if (taskInfo.tagName != null && taskInfo.tagColor != null) {
+            TagChip(
+                name = taskInfo.tagName,
+                color = Color(taskInfo.tagColor),
+            )
+            Spacer(Modifier.width(8.dp))
+        }
 
         // Task info
         Column(modifier = Modifier.weight(1f)) {

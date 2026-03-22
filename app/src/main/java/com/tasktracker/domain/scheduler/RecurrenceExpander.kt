@@ -56,7 +56,6 @@ class RecurrenceExpander {
                 result.add(
                     Task(
                         title = recurringTask.title,
-                        description = recurringTask.description,
                         estimatedDurationMinutes = recurringTask.estimatedDurationMinutes,
                         quadrant = recurringTask.quadrant,
                         dayPreference = recurringTask.dayPreference,
@@ -64,6 +63,7 @@ class RecurrenceExpander {
                         recurringTaskId = recurringTask.id,
                         instanceDate = date,
                         fixedTime = recurringTask.fixedTime,
+                        tagId = recurringTask.tagId,
                         status = TaskStatus.PENDING,
                     )
                 )

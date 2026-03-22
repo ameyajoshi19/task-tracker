@@ -1,8 +1,8 @@
 // app/src/main/java/com/tasktracker/domain/validation/RecurringTaskValidator.kt
 package com.tasktracker.domain.validation
 
+import com.tasktracker.domain.model.AvailabilitySlot
 import com.tasktracker.domain.model.RecurringTask
-import com.tasktracker.domain.model.UserAvailability
 import java.time.Duration
 import java.time.LocalDate
 
@@ -15,7 +15,7 @@ class RecurringTaskValidator {
 
     fun validate(
         recurringTask: RecurringTask,
-        availability: List<UserAvailability>,
+        availability: List<AvailabilitySlot>,
         today: LocalDate = LocalDate.now(),
         isCreation: Boolean = true,
     ): ValidationResult {

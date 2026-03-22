@@ -37,7 +37,9 @@ interface TaskDao {
                sb.startTime AS nextBlockStart,
                sb.endTime AS nextBlockEnd,
                (SELECT COUNT(*) FROM scheduled_blocks sb3
-                WHERE sb3.taskId = t.id AND sb3.status = 'CONFIRMED') AS blockCount
+                WHERE sb3.taskId = t.id AND sb3.status = 'CONFIRMED') AS blockCount,
+               tag.name AS tagName,
+               tag.color AS tagColor
         FROM tasks t
         LEFT JOIN scheduled_blocks sb
             ON sb.taskId = t.id AND sb.status = 'CONFIRMED'
@@ -45,9 +47,31 @@ interface TaskDao {
                 SELECT MIN(sb2.startTime) FROM scheduled_blocks sb2
                 WHERE sb2.taskId = t.id AND sb2.status = 'CONFIRMED'
             )
+        LEFT JOIN tags tag ON tag.id = t.tagId
         ORDER BY t.createdAt DESC
     """)
     fun observeAllWithNextBlock(): Flow<List<TaskWithNextBlockTuple>>
+
+    @Query("""
+        SELECT t.*,
+               sb.startTime AS nextBlockStart,
+               sb.endTime AS nextBlockEnd,
+               (SELECT COUNT(*) FROM scheduled_blocks sb3
+                WHERE sb3.taskId = t.id AND sb3.status = 'CONFIRMED') AS blockCount,
+               tag.name AS tagName,
+               tag.color AS tagColor
+        FROM tasks t
+        LEFT JOIN scheduled_blocks sb
+            ON sb.taskId = t.id AND sb.status = 'CONFIRMED'
+            AND sb.startTime = (
+                SELECT MIN(sb2.startTime) FROM scheduled_blocks sb2
+                WHERE sb2.taskId = t.id AND sb2.status = 'CONFIRMED'
+            )
+        LEFT JOIN tags tag ON tag.id = t.tagId
+        WHERE t.tagId = :tagId
+        ORDER BY t.createdAt DESC
+    """)
+    fun observeByTagId(tagId: Long): Flow<List<TaskWithNextBlockTuple>>
 
     @Query("SELECT * FROM tasks WHERE recurringTaskId = :recurringTaskId")
     suspend fun getByRecurringTaskId(recurringTaskId: Long): List<TaskEntity>
@@ -61,4 +85,7 @@ interface TaskDao {
 
     @Query("DELETE FROM tasks WHERE recurringTaskId = :recurringTaskId AND instanceDate >= :fromDate")
     suspend fun deleteByRecurringTaskIdFromDate(recurringTaskId: Long, fromDate: LocalDate)
+
+    @Query("UPDATE tasks SET tagId = :tagId WHERE recurringTaskId = :recurringTaskId")
+    suspend fun updateTagByRecurringTaskId(recurringTaskId: Long, tagId: Long?)
 }

@@ -25,7 +25,6 @@ import javax.inject.Inject
 
 data class TaskEditUiState(
     val title: String = "",
-    val description: String = "",
     val durationMinutes: Int = 60,
     val quadrant: Quadrant = Quadrant.IMPORTANT,
     val deadline: Instant? = null,
@@ -47,6 +46,10 @@ data class TaskEditUiState(
     val endDate: LocalDate? = null,
     val isFixedTime: Boolean = false,
     val fixedTime: LocalTime? = null,
+    val tags: List<Tag> = emptyList(),
+    val selectedTagId: Long? = null,
+    val selectedAvailabilitySlot: AvailabilitySlotType? = null,
+    val enabledSlotTypes: Set<AvailabilitySlotType> = emptySet(),
 )
 
 /**
@@ -68,7 +71,7 @@ class TaskEditViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val taskRepository: TaskRepository,
     private val blockRepository: ScheduledBlockRepository,
-    private val availabilityRepository: UserAvailabilityRepository,
+    private val availabilityRepository: AvailabilitySlotRepository,
     private val calendarSelectionRepository: CalendarSelectionRepository,
     private val calendarRepository: CalendarRepository,
     private val syncManager: CalendarSyncManager,
@@ -79,6 +82,7 @@ class TaskEditViewModel @Inject constructor(
     private val recurringTaskExceptionRepository: RecurringTaskExceptionRepository,
     private val recurrenceExpander: RecurrenceExpander,
     private val recurringTaskValidator: RecurringTaskValidator,
+    private val tagRepository: TagRepository,
 ) : ViewModel() {
 
     private val taskId: Long = savedStateHandle.get<Long>("taskId") ?: -1L
@@ -92,18 +96,30 @@ class TaskEditViewModel @Inject constructor(
                 _uiState.update { it.copy(staleDataWarning = isStale) }
             }
         }
+        viewModelScope.launch {
+            tagRepository.observeAll().collect { tags ->
+                _uiState.update { it.copy(tags = tags) }
+            }
+        }
+        viewModelScope.launch {
+            availabilityRepository.observeAll().collect { slots ->
+                val enabledTypes = slots.filter { it.enabled }.map { it.slotType }.toSet()
+                _uiState.update { it.copy(enabledSlotTypes = enabledTypes) }
+            }
+        }
         if (taskId != -1L) {
             viewModelScope.launch {
                 val task = taskRepository.getById(taskId) ?: return@launch
                 _uiState.update {
                     it.copy(
                         title = task.title,
-                        description = task.description,
                         durationMinutes = task.estimatedDurationMinutes,
                         quadrant = task.quadrant,
                         deadline = task.deadline,
                         dayPreference = task.dayPreference,
                         splittable = task.splittable,
+                        selectedTagId = task.tagId,
+                        selectedAvailabilitySlot = task.availabilitySlot,
                     )
                 }
             }
@@ -126,7 +142,6 @@ class TaskEditViewModel @Inject constructor(
             )
         }
     }
-    fun updateDescription(desc: String) { _uiState.update { it.copy(description = desc) } }
     fun updateDuration(minutes: Int) { _uiState.update { it.copy(durationMinutes = minutes, validationError = null) } }
     fun updateQuadrant(q: Quadrant) { _uiState.update { it.copy(quadrant = q) } }
     fun updateDeadline(deadline: Instant?) {
@@ -183,6 +198,22 @@ class TaskEditViewModel @Inject constructor(
         _uiState.update { it.copy(fixedTime = time) }
     }
 
+    fun updateSelectedTag(tagId: Long?) {
+        _uiState.update { it.copy(selectedTagId = tagId) }
+    }
+
+    fun updateAvailabilitySlot(slot: AvailabilitySlotType?) {
+        _uiState.update { it.copy(selectedAvailabilitySlot = slot) }
+    }
+
+    fun createTag(name: String, color: Long) {
+        viewModelScope.launch {
+            val tag = Tag(name = name, color = color)
+            val id = tagRepository.insert(tag)
+            _uiState.update { it.copy(selectedTagId = id) }
+        }
+    }
+
     fun save() {
         val state = _uiState.value
         // Quick synchronous guard before launching a coroutine
@@ -196,11 +227,10 @@ class TaskEditViewModel @Inject constructor(
 
             // --- Recurring task branch ---
             if (state.isRecurring) {
-                val availabilityList = availabilityRepository.getAll()
+                val availabilityList = availabilityRepository.getEnabled()
                 val today = LocalDate.now()
                 val recurringTask = RecurringTask(
                     title = state.title.trim(),
-                    description = state.description.trim(),
                     estimatedDurationMinutes = state.durationMinutes,
                     quadrant = state.quadrant,
                     dayPreference = state.dayPreference,
@@ -209,6 +239,7 @@ class TaskEditViewModel @Inject constructor(
                     startDate = state.startDate,
                     endDate = state.endDate,
                     fixedTime = if (state.isFixedTime) state.fixedTime else null,
+                    tagId = state.selectedTagId,
                 )
 
                 val validationResult = recurringTaskValidator.validate(
@@ -340,15 +371,16 @@ class TaskEditViewModel @Inject constructor(
             val task = Task(
                 id = if (taskId != -1L) taskId else 0,
                 title = state.title.trim(),
-                description = state.description.trim(),
                 estimatedDurationMinutes = state.durationMinutes,
                 quadrant = state.quadrant,
                 deadline = state.deadline,
                 dayPreference = state.dayPreference,
                 splittable = state.splittable,
+                tagId = state.selectedTagId,
+                availabilitySlot = state.selectedAvailabilitySlot,
             )
 
-            val availability = availabilityRepository.getAll()
+            val availability = availabilityRepository.getEnabled()
             val validation = taskValidator.validate(task, availability)
             if (validation is ValidationResult.Invalid) {
                 _uiState.update { it.copy(validationError = validation.reason, isSaving = false) }
@@ -467,7 +499,17 @@ class TaskEditViewModel @Inject constructor(
         return if (isEditing) {
             syncManager.deleteTaskEvents(savedTaskId)
             blockRepository.deleteByTaskId(savedTaskId)
+            val existingTask = taskRepository.getById(savedTaskId)
             taskRepository.update(task.copy(id = savedTaskId))
+            // Propagate tag changes to all instances of the same recurring task
+            existingTask?.recurringTaskId?.let { recurringId ->
+                if (existingTask.tagId != task.tagId) {
+                    taskRepository.updateTagByRecurringTaskId(recurringId, task.tagId)
+                    recurringTaskRepository.getById(recurringId)?.let { template ->
+                        recurringTaskRepository.update(template.copy(tagId = task.tagId))
+                    }
+                }
+            }
             savedTaskId
         } else {
             val id = taskRepository.insert(task)

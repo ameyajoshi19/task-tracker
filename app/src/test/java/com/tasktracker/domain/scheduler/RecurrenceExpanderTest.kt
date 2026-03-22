@@ -25,7 +25,6 @@ class RecurrenceExpanderTest {
     ) = RecurringTask(
         id = id,
         title = "Recurring $id",
-        description = "Test recurring task",
         estimatedDurationMinutes = duration,
         quadrant = quadrant,
         dayPreference = dayPreference,
@@ -94,7 +93,6 @@ class RecurrenceExpanderTest {
         assertThat(result).hasSize(1)
         val task = result[0]
         assertThat(task.title).isEqualTo("Recurring 42")
-        assertThat(task.description).isEqualTo("Test recurring task")
         assertThat(task.estimatedDurationMinutes).isEqualTo(90)
         assertThat(task.quadrant).isEqualTo(Quadrant.URGENT_IMPORTANT)
         assertThat(task.dayPreference).isEqualTo(DayPreference.WEEKDAY)

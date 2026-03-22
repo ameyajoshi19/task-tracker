@@ -164,6 +164,9 @@ class CalendarSyncManagerTest {
         override suspend fun deleteByRecurringTaskIdFromDate(recurringTaskId: Long, fromDate: java.time.LocalDate) {
             tasks.entries.removeAll { e -> e.value.recurringTaskId == recurringTaskId && e.value.instanceDate?.let { !it.isBefore(fromDate) } == true }
         }
+        override suspend fun updateTagByRecurringTaskId(recurringTaskId: Long, tagId: Long?) {
+            tasks.replaceAll { id, task -> if (task.recurringTaskId == recurringTaskId) task.copy(tagId = tagId) else task }
+        }
     }
 
     class FakeSyncOperationRepository : SyncOperationRepository {

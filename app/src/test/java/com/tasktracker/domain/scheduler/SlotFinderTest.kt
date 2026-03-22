@@ -19,11 +19,14 @@ class SlotFinderTest {
         day: DayOfWeek = DayOfWeek.MONDAY,
         start: LocalTime = LocalTime.of(9, 0),
         end: LocalTime = LocalTime.of(17, 0),
-    ) = UserAvailability(
+        slotType: AvailabilitySlotType = AvailabilitySlotType.DURING_WORK,
+        enabled: Boolean = true,
+    ) = AvailabilitySlot(
+        slotType = slotType,
         dayOfWeek = day,
         startTime = start,
         endTime = end,
-        enabled = true,
+        enabled = enabled,
     )
 
     private fun busySlot(
@@ -121,7 +124,7 @@ class SlotFinderTest {
     fun `disabled availability windows are excluded`() {
         val slots = finder.findAvailableSlots(
             availability = listOf(
-                availability().copy(enabled = false),
+                availability(enabled = false),
             ),
             busySlots = emptyList(),
             startDate = monday,

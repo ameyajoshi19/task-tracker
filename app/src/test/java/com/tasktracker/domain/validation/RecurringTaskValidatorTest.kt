@@ -12,7 +12,8 @@ class RecurringTaskValidatorTest {
     private val validator = RecurringTaskValidator()
 
     private val defaultAvailability = listOf(
-        UserAvailability(
+        AvailabilitySlot(
+            slotType = AvailabilitySlotType.DURING_WORK,
             dayOfWeek = java.time.DayOfWeek.MONDAY,
             startTime = LocalTime.of(9, 0),
             endTime = LocalTime.of(17, 0),
@@ -127,7 +128,8 @@ class RecurringTaskValidatorTest {
     @Test
     fun `non-splittable exceeding longest window fails`() {
         val shortAvailability = listOf(
-            UserAvailability(
+            AvailabilitySlot(
+                slotType = AvailabilitySlotType.DURING_WORK,
                 dayOfWeek = java.time.DayOfWeek.MONDAY,
                 startTime = LocalTime.of(9, 0),
                 endTime = LocalTime.of(9, 30),

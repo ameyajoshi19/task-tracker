@@ -106,29 +106,13 @@ fun TaskEditScreen(
                 )
             }
 
-            // Description
-            Column {
-                Text(
-                    text = "DESCRIPTION",
-                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 11.sp, letterSpacing = 0.5.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 6.dp),
-                )
-                OutlinedTextField(
-                    value = uiState.description,
-                    onValueChange = viewModel::updateDescription,
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
-                    maxLines = 4,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = SortdColors.accent,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    ),
-                )
-            }
+            // Tag
+            TagSelector(
+                tags = uiState.tags,
+                selectedTagId = uiState.selectedTagId,
+                onTagSelected = viewModel::updateSelectedTag,
+                onCreateTag = viewModel::createTag,
+            )
 
             // Duration
             DurationPicker(
@@ -136,12 +120,6 @@ fun TaskEditScreen(
                 onDurationChange = viewModel::updateDuration,
                 suggestedMinutes = uiState.suggestedDurationMinutes,
                 suggestedKeyword = uiState.suggestedDurationKeyword,
-            )
-
-            // Deadline (moved above Priority)
-            DeadlinePicker(
-                deadline = uiState.deadline,
-                onDeadlineChange = viewModel::updateDeadline,
             )
 
             // Priority Quadrant
@@ -152,46 +130,13 @@ fun TaskEditScreen(
                 suggestionReason = uiState.suggestedQuadrantReason,
             )
 
-            // Day Preference
-            DayPreferenceSelector(
-                selected = uiState.dayPreference,
-                onSelect = viewModel::updateDayPreference,
+            // Deadline
+            DeadlinePicker(
+                deadline = uiState.deadline,
+                onDeadlineChange = viewModel::updateDeadline,
             )
 
-            // Splittable toggle
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-                    .padding(12.dp, 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Splittable",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        "Allow splitting across time blocks",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    )
-                }
-                Switch(
-                    checked = uiState.splittable,
-                    onCheckedChange = viewModel::updateSplittable,
-                    colors = SwitchDefaults.colors(
-                        checkedTrackColor = SortdColors.accent,
-                        checkedThumbColor = Color.White,
-                    ),
-                )
-            }
-
-            // Recurring task
+            // Recurring task — placed before scheduling options since it controls their visibility
             RecurringTaskFields(
                 isRecurring = uiState.isRecurring,
                 onRecurringChange = viewModel::updateRecurring,
@@ -206,6 +151,58 @@ fun TaskEditScreen(
                 fixedTime = uiState.fixedTime,
                 onFixedTimeValueChange = viewModel::updateFixedTimeValue,
             )
+
+            // Day Preference — not applicable for recurring tasks (they use interval days)
+            if (!uiState.isRecurring) {
+                DayPreferenceSelector(
+                    selected = uiState.dayPreference,
+                    onSelect = viewModel::updateDayPreference,
+                )
+            }
+
+            // Availability Slot — not applicable for fixed-time tasks (they have an exact time)
+            if (!(uiState.isRecurring && uiState.isFixedTime)) {
+                AvailabilitySlotSelector(
+                    selected = uiState.selectedAvailabilitySlot,
+                    enabledSlotTypes = uiState.enabledSlotTypes,
+                    onSelect = viewModel::updateAvailabilitySlot,
+                )
+            }
+
+            // Splittable toggle — not applicable for fixed-time recurring tasks
+            if (!(uiState.isRecurring && uiState.isFixedTime)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                        .padding(12.dp, 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Splittable",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            "Allow splitting across time blocks",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        )
+                    }
+                    Switch(
+                        checked = uiState.splittable,
+                        onCheckedChange = viewModel::updateSplittable,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = SortdColors.accent,
+                            checkedThumbColor = Color.White,
+                        ),
+                    )
+                }
+            }
 
             // Validation errors
             if (uiState.validationError != null) {

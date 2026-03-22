@@ -17,25 +17,29 @@ import com.tasktracker.data.local.entity.*
  *   `recurringTaskId`, `instanceDate`, and `fixedTime` columns to link instances to their
  *   template. SQLite's lack of ALTER TABLE … ADD FOREIGN KEY means the FK is enforced at the
  *   app level only; an index is added to keep instance-by-template queries fast.
+ * - 4→5: Replaced `user_availability` with `availability_slots` (3 slot types × 7 days).
+ *   Added `tags` table. Extended `tasks` with `availability_slot` and `tag_id` columns.
  */
 @Database(
     entities = [
         TaskEntity::class,
         ScheduledBlockEntity::class,
-        UserAvailabilityEntity::class,
+        AvailabilitySlotEntity::class,
+        TagEntity::class,
         CalendarSelectionEntity::class,
         PendingSyncOperationEntity::class,
         RecurringTaskEntity::class,
         RecurringTaskExceptionEntity::class,
     ],
-    version = 4,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class TaskTrackerDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun scheduledBlockDao(): ScheduledBlockDao
-    abstract fun userAvailabilityDao(): UserAvailabilityDao
+    abstract fun availabilitySlotDao(): AvailabilitySlotDao
+    abstract fun tagDao(): TagDao
     abstract fun calendarSelectionDao(): CalendarSelectionDao
     abstract fun pendingSyncOperationDao(): PendingSyncOperationDao
     abstract fun recurringTaskDao(): RecurringTaskDao
@@ -116,6 +120,63 @@ abstract class TaskTrackerDatabase : RoomDatabase() {
                 // The foreign key is enforced at the Room/app level. The index still helps queries.
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_tasks_recurringTaskId ON tasks (recurringTaskId)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_tasks_recurringTaskId_instanceDate ON tasks (recurringTaskId, instanceDate)")
+            }
+        }
+
+        val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Drop the old user_availability table, replaced by availability_slots
+                db.execSQL("DROP TABLE IF EXISTS user_availability")
+
+                // Create availability_slots table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS availability_slots (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        slotType TEXT NOT NULL,
+                        dayOfWeek INTEGER NOT NULL,
+                        startTime TEXT NOT NULL,
+                        endTime TEXT NOT NULL,
+                        enabled INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_availability_slots_slotType_dayOfWeek ON availability_slots (slotType, dayOfWeek)")
+
+                // Pre-populate 21 rows (3 types x 7 days), all disabled
+                val slotDefaults = mapOf(
+                    "BEFORE_WORK" to ("06:00" to "09:00"),
+                    "DURING_WORK" to ("09:00" to "17:00"),
+                    "AFTER_WORK" to ("17:00" to "21:00"),
+                )
+                for ((slotType, times) in slotDefaults) {
+                    for (day in 1..7) { // DayOfWeek 1=Monday .. 7=Sunday
+                        db.execSQL(
+                            "INSERT INTO availability_slots (slotType, dayOfWeek, startTime, endTime, enabled) VALUES (?, ?, ?, ?, 0)",
+                            arrayOf(slotType, day, times.first, times.second),
+                        )
+                    }
+                }
+
+                // Create tags table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS tags (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        color INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_tags_name ON tags (name)")
+
+                // Add new columns to tasks table
+                db.execSQL("ALTER TABLE tasks ADD COLUMN availabilitySlot TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN tagId INTEGER DEFAULT NULL")
+            }
+        }
+
+        val MIGRATION_5_6 = object : androidx.room.migration.Migration(5, 6) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add tagId column to recurring_tasks to propagate tags to instances
+                db.execSQL("ALTER TABLE recurring_tasks ADD COLUMN tagId INTEGER DEFAULT NULL")
             }
         }
     }

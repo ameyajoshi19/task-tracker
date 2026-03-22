@@ -19,9 +19,13 @@ data class TaskWithNextBlockTuple(
     val recurringTaskId: Long?,
     val instanceDate: LocalDate?,
     val fixedTime: LocalTime?,
+    val availabilitySlot: String?,
+    val tagId: Long?,
     val createdAt: Instant,
     val updatedAt: Instant,
     val nextBlockStart: Instant?,
     val nextBlockEnd: Instant?,
     val blockCount: Int,
+    val tagName: String?,
+    val tagColor: Long?,
 )

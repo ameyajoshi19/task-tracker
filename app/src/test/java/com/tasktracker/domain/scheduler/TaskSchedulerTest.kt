@@ -20,7 +20,8 @@ class TaskSchedulerTest {
         day: DayOfWeek = DayOfWeek.MONDAY,
         start: LocalTime = LocalTime.of(9, 0),
         end: LocalTime = LocalTime.of(17, 0),
-    ) = UserAvailability(dayOfWeek = day, startTime = start, endTime = end)
+        slotType: AvailabilitySlotType = AvailabilitySlotType.DURING_WORK,
+    ) = AvailabilitySlot(slotType = slotType, dayOfWeek = day, startTime = start, endTime = end, enabled = true)
 
     private fun task(
         id: Long = 1,
@@ -182,7 +183,7 @@ class TaskSchedulerTest {
         val result = scheduler.schedule(
             tasks = listOf(task(duration = 60)),
             existingBlocks = emptyList(),
-            availability = emptyList(),
+            availability = emptyList<AvailabilitySlot>(),
             busySlots = emptyList(),
             startDate = monday,
             endDate = monday,

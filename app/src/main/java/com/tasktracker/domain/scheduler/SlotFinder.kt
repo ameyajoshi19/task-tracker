@@ -1,28 +1,34 @@
 package com.tasktracker.domain.scheduler
 
+import com.tasktracker.domain.model.AvailabilitySlot
+import com.tasktracker.domain.model.AvailabilitySlotType
 import com.tasktracker.domain.model.DayPreference
 import com.tasktracker.domain.model.TimeSlot
-import com.tasktracker.domain.model.UserAvailability
 import java.time.*
 
 /**
  * Computes free time windows by subtracting busy periods from the user's availability windows.
- * Given a set of recurring daily [UserAvailability] entries and a list of already-occupied
+ * Given a set of recurring daily availability entries and a list of already-occupied
  * [TimeSlot]s, it returns the contiguous free slots available for scheduling across a date range.
  */
 class SlotFinder {
 
     fun findAvailableSlots(
-        availability: List<UserAvailability>,
+        availability: List<AvailabilitySlot>,
         busySlots: List<TimeSlot>,
         startDate: LocalDate,
         endDate: LocalDate,
         dayPreference: DayPreference,
         zoneId: ZoneId,
         now: Instant = Instant.now(),
+        slotType: AvailabilitySlotType? = null,
     ): List<TimeSlot> {
         val result = mutableListOf<TimeSlot>()
-        val enabledAvailability = availability.filter { it.enabled }
+        val filteredAvailability = availability
+            .filter { it.enabled }
+            .let { enabled ->
+                if (slotType != null) enabled.filter { it.slotType == slotType } else enabled
+            }
 
         var currentDate = startDate
         while (!currentDate.isAfter(endDate)) {
@@ -32,7 +38,7 @@ class SlotFinder {
                 continue
             }
 
-            val windowsForDay = enabledAvailability.filter { it.dayOfWeek == dayOfWeek }
+            val windowsForDay = filteredAvailability.filter { it.dayOfWeek == dayOfWeek }
             for (window in windowsForDay) {
                 var windowStart = currentDate.atTime(window.startTime)
                     .atZone(zoneId).toInstant()

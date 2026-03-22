@@ -29,13 +29,14 @@ data class TaskEntity(
     val recurringTaskId: Long? = null,
     val instanceDate: LocalDate? = null,
     val fixedTime: LocalTime? = null,
+    val availabilitySlot: AvailabilitySlotType? = null,
+    val tagId: Long? = null,
     val createdAt: Instant = Instant.now(),
     val updatedAt: Instant = Instant.now(),
 ) {
     fun toDomain() = Task(
         id = id,
         title = title,
-        description = description,
         estimatedDurationMinutes = estimatedDurationMinutes,
         quadrant = quadrant,
         deadline = deadline,
@@ -46,6 +47,8 @@ data class TaskEntity(
         recurringTaskId = recurringTaskId,
         instanceDate = instanceDate,
         fixedTime = fixedTime,
+        availabilitySlot = availabilitySlot,
+        tagId = tagId,
         createdAt = createdAt,
         updatedAt = updatedAt,
     )
@@ -54,7 +57,6 @@ data class TaskEntity(
         fun fromDomain(task: Task) = TaskEntity(
             id = task.id,
             title = task.title,
-            description = task.description,
             estimatedDurationMinutes = task.estimatedDurationMinutes,
             quadrant = task.quadrant,
             deadline = task.deadline,
@@ -65,6 +67,8 @@ data class TaskEntity(
             recurringTaskId = task.recurringTaskId,
             instanceDate = task.instanceDate,
             fixedTime = task.fixedTime,
+            availabilitySlot = task.availabilitySlot,
+            tagId = task.tagId,
             createdAt = task.createdAt,
             updatedAt = task.updatedAt,
         )

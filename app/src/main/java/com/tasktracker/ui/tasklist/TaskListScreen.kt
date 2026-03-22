@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EventRepeat
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -41,10 +42,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tasktracker.domain.model.Quadrant
 import com.tasktracker.domain.model.TaskStatus
 import com.tasktracker.domain.model.TaskWithScheduleInfo
+import com.tasktracker.ui.components.AppDrawerContent
 import com.tasktracker.ui.components.RecurringDeleteChoice
 import com.tasktracker.ui.components.RecurringDeleteDialog
 import com.tasktracker.ui.components.TaskCard
 import com.tasktracker.ui.components.quadrantColors
+import kotlinx.coroutines.launch
 import com.tasktracker.ui.theme.SortdColors
 import java.time.LocalDate
 
@@ -59,6 +62,8 @@ fun TaskListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var taskToDelete by remember { mutableStateOf<TaskWithScheduleInfo?>(null) }
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(uiState.rescheduleError) {
@@ -107,23 +112,40 @@ fun TaskListScreen(
         )
     }
 
+    val viewTitle = when (val mode = uiState.currentViewMode) {
+        is ViewMode.Today -> "Today"
+        is ViewMode.AllTasks -> "All Tasks"
+        is ViewMode.TagFilter -> mode.tagName
+    }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = drawerState.isOpen,
+        drawerContent = {
+            AppDrawerContent(
+                currentViewMode = uiState.currentViewMode,
+                tags = uiState.tags,
+                onViewModeSelected = { mode ->
+                    viewModel.setViewMode(mode)
+                    scope.launch { drawerState.close() }
+                },
+            )
+        },
+    ) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_sortd_logo),
-                            contentDescription = null,
-                            tint = Color.Unspecified,
-                            modifier = Modifier.size(28.dp),
-                        )
-                        Text("sortd", style = MaterialTheme.typography.headlineMedium)
-                        Text(".", style = MaterialTheme.typography.headlineMedium, color = SortdColors.accent)
+                navigationIcon = {
+                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                        Icon(Icons.Default.Menu, contentDescription = "Menu")
                     }
+                },
+                title = {
+                    Text(
+                        viewTitle,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
                 },
                 actions = {
                     IconButton(onClick = onNavigateToSchedule) {
@@ -163,107 +185,64 @@ fun TaskListScreen(
                 CircularProgressIndicator(color = SortdColors.accent)
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                // Due Today section
-                if (uiState.dueTodayTasks.isNotEmpty()) {
-                    item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .border(
-                                    1.dp,
-                                    SortdColors.deadlineWarning.copy(alpha = 0.2f),
-                                    RoundedCornerShape(14.dp),
-                                )
-                                .padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            DueTodayHeader(uiState.dueTodayTasks.size)
-                            uiState.dueTodayTasks.forEach { taskInfo ->
-                                key(taskInfo.task.id) {
-                                    SwipeableTaskCard(
-                                        taskInfo = taskInfo,
-                                        onEdit = { onEditTask(taskInfo.task.id) },
-                                        onComplete = { viewModel.completeTask(taskInfo.task) },
-                                        onDelete = { if (taskInfo.recurringTaskId != null) viewModel.deleteTask(taskInfo) else taskToDelete = taskInfo },
-                                        onReschedule = { viewModel.rescheduleTask(taskInfo.task.id) },
-                                        isRescheduling = taskInfo.task.id in uiState.reschedulingTaskIds,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    item { Spacer(Modifier.height(16.dp)) }
+            val handleComplete = { taskInfo: TaskWithScheduleInfo ->
+                viewModel.completeTask(taskInfo.task)
+            }
+            val handleDelete = { taskInfo: TaskWithScheduleInfo ->
+                if (taskInfo.recurringTaskId != null) viewModel.deleteTask(taskInfo) else taskToDelete = taskInfo
+            }
+
+            when (val viewMode = uiState.currentViewMode) {
+                is ViewMode.Today -> {
+                    TodayView(
+                        overdueTasks = uiState.overdueTasks,
+                        todayTasks = uiState.todayTasks,
+                        upcomingTasks = uiState.upcomingTasks,
+                        completedTodayTasks = uiState.completedTodayTasks,
+                        reschedulingTaskIds = uiState.reschedulingTaskIds,
+                        onEdit = onEditTask,
+                        onComplete = handleComplete,
+                        onDelete = handleDelete,
+                        onReschedule = { viewModel.rescheduleTask(it) },
+                    )
                 }
 
-                // Quadrant groups
-                val quadrantOrder = listOf(
-                    Quadrant.URGENT_IMPORTANT,
-                    Quadrant.IMPORTANT,
-                    Quadrant.URGENT,
-                    Quadrant.NEITHER,
-                )
-                for (quadrant in quadrantOrder) {
-                    val tasks = uiState.tasksByQuadrant[quadrant] ?: continue
-                    item { QuadrantHeader(quadrant, tasks.size) }
-                    items(tasks, key = { it.task.id }) { taskInfo ->
-                        SwipeableTaskCard(
-                            taskInfo = taskInfo,
-                            onEdit = { onEditTask(taskInfo.task.id) },
-                            onComplete = { viewModel.completeTask(taskInfo.task) },
-                            onDelete = { if (taskInfo.recurringTaskId != null) viewModel.deleteTask(taskInfo) else taskToDelete = taskInfo },
-                            onReschedule = { viewModel.rescheduleTask(taskInfo.task.id) },
-                            isRescheduling = taskInfo.task.id in uiState.reschedulingTaskIds,
-                        )
-                    }
+                is ViewMode.AllTasks -> {
+                    AllTasksView(
+                        tasksByQuadrant = uiState.tasksByQuadrant,
+                        completedTasks = uiState.completedTasks,
+                        reschedulingTaskIds = uiState.reschedulingTaskIds,
+                        onEdit = onEditTask,
+                        onComplete = handleComplete,
+                        onDelete = handleDelete,
+                        onReschedule = { viewModel.rescheduleTask(it) },
+                    )
                 }
 
-                // Completed section
-                if (uiState.completedTasks.isNotEmpty()) {
-                    item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline)
-                            Text(
-                                text = "Completed · ${uiState.completedTasks.size}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                modifier = Modifier.padding(horizontal = 12.dp),
-                                letterSpacing = 1.sp,
-                            )
-                            HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline)
-                        }
-                    }
-                    items(uiState.completedTasks, key = { "done-${it.task.id}" }) { taskInfo ->
-                        SwipeableTaskCard(
-                            taskInfo = taskInfo,
-                            onEdit = { onEditTask(taskInfo.task.id) },
-                            onComplete = { },
-                            onDelete = { if (taskInfo.recurringTaskId != null) viewModel.deleteTask(taskInfo) else taskToDelete = taskInfo },
-                            onReschedule = null,
-                            isRescheduling = false,
-                        )
-                    }
+                is ViewMode.TagFilter -> {
+                    TagFilterView(
+                        tagId = viewMode.tagId,
+                        tagName = viewMode.tagName,
+                        tags = uiState.tags,
+                        tasksByQuadrant = uiState.tasksByQuadrant,
+                        completedTasks = uiState.completedTasks,
+                        reschedulingTaskIds = uiState.reschedulingTaskIds,
+                        onEdit = onEditTask,
+                        onComplete = handleComplete,
+                        onDelete = handleDelete,
+                        onReschedule = { viewModel.rescheduleTask(it) },
+                    )
                 }
             }
         }
         }
     }
+    } // ModalNavigationDrawer
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SwipeableTaskCard(
+internal fun SwipeableTaskCard(
     taskInfo: TaskWithScheduleInfo,
     onEdit: () -> Unit,
     onComplete: () -> Unit,
@@ -388,45 +367,7 @@ private fun SwipeableTaskCard(
 }
 
 @Composable
-private fun DueTodayHeader(count: Int) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(SortdColors.deadlineWarning.copy(alpha = 0.1f))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            Icons.Default.Warning,
-            contentDescription = null,
-            tint = SortdColors.deadlineWarning,
-            modifier = Modifier.size(16.dp),
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = "Due Today",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            color = SortdColors.deadlineWarning,
-            letterSpacing = 1.sp,
-        )
-        Spacer(Modifier.weight(1f))
-        Text(
-            text = count.toString(),
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Medium,
-            color = SortdColors.deadlineWarning,
-            modifier = Modifier
-                .clip(RoundedCornerShape(6.dp))
-                .background(SortdColors.deadlineWarning.copy(alpha = 0.15f))
-                .padding(horizontal = 8.dp, vertical = 2.dp),
-        )
-    }
-}
-
-@Composable
-private fun QuadrantHeader(quadrant: Quadrant, count: Int) {
+internal fun QuadrantHeader(quadrant: Quadrant, count: Int) {
     val (colorStart, colorEnd) = quadrantColors(quadrant)
     val (icon, label) = when (quadrant) {
         Quadrant.URGENT_IMPORTANT -> "⚡" to "Now"

@@ -19,7 +19,6 @@ import java.time.LocalTime
 data class Task(
     val id: Long = 0,
     val title: String,
-    val description: String = "",
     val estimatedDurationMinutes: Int,
     val quadrant: Quadrant,
     val deadline: Instant? = null,
@@ -30,6 +29,8 @@ data class Task(
     val recurringTaskId: Long? = null,
     val instanceDate: LocalDate? = null,
     val fixedTime: LocalTime? = null,
+    val availabilitySlot: AvailabilitySlotType? = null,
+    val tagId: Long? = null,
     val createdAt: Instant = Instant.now(),
     val updatedAt: Instant = Instant.now(),
 )

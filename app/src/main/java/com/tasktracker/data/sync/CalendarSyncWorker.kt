@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.first
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /**
  * Background worker that keeps the app's scheduled blocks in sync with Google Calendar.
@@ -44,7 +45,7 @@ class CalendarSyncWorker @AssistedInject constructor(
     private val calendarSelectionRepository: CalendarSelectionRepository,
     private val blockRepository: ScheduledBlockRepository,
     private val taskRepository: TaskRepository,
-    private val availabilityRepository: UserAvailabilityRepository,
+    private val availabilityRepository: AvailabilitySlotRepository,
     private val syncManager: CalendarSyncManager,
     private val externalChangeDetector: ExternalChangeDetector,
     private val taskScheduler: TaskScheduler,
@@ -139,18 +140,46 @@ class CalendarSyncWorker @AssistedInject constructor(
 
             // 6. Re-run scheduler if needed
             if (needsReschedule) {
-                val pendingTasks = taskRepository.getByStatuses(
+                val allTasks = taskRepository.getByStatuses(
                     listOf(TaskStatus.PENDING, TaskStatus.SCHEDULED)
                 )
                 val availability = availabilityRepository.getEnabled()
                 val zoneId = ZoneId.systemDefault()
                 val today = LocalDate.now(zoneId)
+
+                // Partition: fixed-time recurring tasks are placed directly, not through scheduler
+                val (fixedTimeTasks, flexibleTasks) = allTasks.partition {
+                    it.fixedTime != null && it.recurringTaskId != null
+                }
+
+                // Place fixed-time tasks directly at their designated time
+                for (task in fixedTimeTasks) {
+                    val date = task.instanceDate ?: continue
+                    val time = task.fixedTime ?: continue
+                    val start = date.atTime(time).atZone(zoneId).toInstant()
+                    val end = start.plus(task.estimatedDurationMinutes.toLong(), ChronoUnit.MINUTES)
+
+                    // Only re-create blocks if the task doesn't already have correct blocks
+                    val existingTaskBlocks = blockRepository.getByTaskId(task.id)
+                    val alreadyCorrect = existingTaskBlocks.any {
+                        it.startTime == start && it.endTime == end && it.status == BlockStatus.CONFIRMED
+                    }
+                    if (!alreadyCorrect) {
+                        syncManager.deleteTaskEvents(task.id)
+                        blockRepository.deleteByTaskId(task.id)
+                        val block = ScheduledBlock(taskId = task.id, startTime = start, endTime = end)
+                        val id = blockRepository.insert(block)
+                        taskRepository.updateStatus(task.id, TaskStatus.SCHEDULED)
+                        syncManager.pushNewBlock(block.copy(id = id))
+                    }
+                }
+
                 val existingBlocks = blockRepository.getByStatuses(
                     listOf(BlockStatus.CONFIRMED, BlockStatus.COMPLETED)
                 )
 
                 val result = taskScheduler.schedule(
-                    tasks = pendingTasks,
+                    tasks = flexibleTasks,
                     existingBlocks = existingBlocks,
                     availability = availability,
                     busySlots = busySlots,

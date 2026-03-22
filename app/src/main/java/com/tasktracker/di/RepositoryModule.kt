@@ -22,7 +22,11 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindUserAvailabilityRepository(impl: UserAvailabilityRepositoryImpl): UserAvailabilityRepository
+    abstract fun bindAvailabilitySlotRepository(impl: AvailabilitySlotRepositoryImpl): AvailabilitySlotRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTagRepository(impl: TagRepositoryImpl): TagRepository
 
     @Binds
     @Singleton

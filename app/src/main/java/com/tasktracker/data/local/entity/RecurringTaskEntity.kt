@@ -20,13 +20,13 @@ data class RecurringTaskEntity(
     val startDate: LocalDate,
     val endDate: LocalDate? = null,
     val fixedTime: LocalTime? = null,
+    val tagId: Long? = null,
     val createdAt: Instant = Instant.now(),
     val updatedAt: Instant = Instant.now(),
 ) {
     fun toDomain() = RecurringTask(
         id = id,
         title = title,
-        description = description,
         estimatedDurationMinutes = estimatedDurationMinutes,
         quadrant = quadrant,
         dayPreference = dayPreference,
@@ -35,6 +35,7 @@ data class RecurringTaskEntity(
         startDate = startDate,
         endDate = endDate,
         fixedTime = fixedTime,
+        tagId = tagId,
         createdAt = createdAt,
         updatedAt = updatedAt,
     )
@@ -43,7 +44,6 @@ data class RecurringTaskEntity(
         fun fromDomain(rt: RecurringTask) = RecurringTaskEntity(
             id = rt.id,
             title = rt.title,
-            description = rt.description,
             estimatedDurationMinutes = rt.estimatedDurationMinutes,
             quadrant = rt.quadrant,
             dayPreference = rt.dayPreference,
@@ -52,6 +52,7 @@ data class RecurringTaskEntity(
             startDate = rt.startDate,
             endDate = rt.endDate,
             fixedTime = rt.fixedTime,
+            tagId = rt.tagId,
             createdAt = rt.createdAt,
             updatedAt = rt.updatedAt,
         )

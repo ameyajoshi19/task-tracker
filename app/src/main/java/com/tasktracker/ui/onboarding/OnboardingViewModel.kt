@@ -4,31 +4,22 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tasktracker.data.preferences.AppPreferences
 import com.tasktracker.data.sync.SyncScheduler
+import com.tasktracker.domain.model.AvailabilitySlot
+import com.tasktracker.domain.model.AvailabilitySlotType
 import com.tasktracker.domain.model.CalendarSelection
 import com.tasktracker.domain.model.SyncInterval
-import com.tasktracker.domain.model.UserAvailability
 import com.tasktracker.domain.repository.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.time.DayOfWeek
-import java.time.LocalTime
 import javax.inject.Inject
 
 enum class OnboardingStep { AVAILABILITY, CALENDARS, DONE }
 
 data class OnboardingUiState(
     val step: OnboardingStep = OnboardingStep.AVAILABILITY,
-    val availabilities: List<UserAvailability> = DayOfWeek.entries.mapIndexed { index, day ->
-        val isWeekday = day != DayOfWeek.SATURDAY && day != DayOfWeek.SUNDAY
-        UserAvailability(
-            id = -(index + 1).toLong(),
-            dayOfWeek = day,
-            startTime = LocalTime.of(9, 0),
-            endTime = LocalTime.of(17, 0),
-            enabled = isWeekday,
-        )
-    },
+    val slots: Map<AvailabilitySlotType, List<AvailabilitySlot>> = emptyMap(),
+    val expandedSlotType: AvailabilitySlotType? = null,
     val calendars: List<CalendarSelectionState> = emptyList(),
     val isLoadingCalendars: Boolean = false,
 )
@@ -42,7 +33,7 @@ data class CalendarSelectionState(
 
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
-    private val availabilityRepository: UserAvailabilityRepository,
+    private val availabilitySlotRepository: AvailabilitySlotRepository,
     private val calendarSelectionRepository: CalendarSelectionRepository,
     private val calendarRepository: CalendarRepository,
     private val syncScheduler: SyncScheduler,
@@ -52,58 +43,33 @@ class OnboardingViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(OnboardingUiState())
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
 
-    fun updateAvailability(availability: UserAvailability) {
-        _uiState.update { state ->
-            state.copy(
-                availabilities = state.availabilities.map {
-                    if (it.id == availability.id) availability else it
-                },
-            )
-        }
-    }
-
-    fun addAvailability(availability: UserAvailability) {
-        _uiState.update { state ->
-            val newId = (state.availabilities.minOfOrNull { it.id } ?: 0L) - 1
-            state.copy(
-                availabilities = state.availabilities + availability.copy(id = newId),
-            )
-        }
-    }
-
-    fun removeAvailability(availability: UserAvailability) {
-        _uiState.update { state ->
-            state.copy(
-                availabilities = state.availabilities.filter { it.id != availability.id },
-            )
-        }
-    }
-
-    fun copyToAllDays(sourceDayOfWeek: DayOfWeek) {
-        _uiState.update { state ->
-            val sourceSlots = state.availabilities.filter {
-                it.dayOfWeek == sourceDayOfWeek && it.enabled
-            }
-            val otherDays = DayOfWeek.entries.filter { it != sourceDayOfWeek }
-            val copied = otherDays.flatMap { targetDay ->
-                sourceSlots.mapIndexed { index, slot ->
-                    val newId = (state.availabilities.minOfOrNull { it.id } ?: 0L) - 1 - (otherDays.indexOf(targetDay) * sourceSlots.size + index)
-                    slot.copy(id = newId, dayOfWeek = targetDay)
+    init {
+        viewModelScope.launch {
+            availabilitySlotRepository.observeAll().collect { slots ->
+                _uiState.update { state ->
+                    state.copy(slots = slots.groupBy { it.slotType })
                 }
             }
-            val updatedList = state.availabilities.filter { it.dayOfWeek == sourceDayOfWeek } + copied
-            state.copy(availabilities = updatedList)
         }
     }
 
-    fun saveAvailabilityAndProceed() {
-        viewModelScope.launch {
-            for (a in _uiState.value.availabilities) {
-                availabilityRepository.insert(a)
-            }
-            _uiState.update { it.copy(step = OnboardingStep.CALENDARS, isLoadingCalendars = true) }
-            loadCalendars()
+    fun toggleExpanded(slotType: AvailabilitySlotType) {
+        _uiState.update { state ->
+            state.copy(
+                expandedSlotType = if (state.expandedSlotType == slotType) null else slotType,
+            )
         }
+    }
+
+    fun updateSlot(slot: AvailabilitySlot) {
+        viewModelScope.launch {
+            availabilitySlotRepository.update(slot)
+        }
+    }
+
+    fun proceedToCalendars() {
+        _uiState.update { it.copy(step = OnboardingStep.CALENDARS, isLoadingCalendars = true) }
+        viewModelScope.launch { loadCalendars() }
     }
 
     private suspend fun loadCalendars() {

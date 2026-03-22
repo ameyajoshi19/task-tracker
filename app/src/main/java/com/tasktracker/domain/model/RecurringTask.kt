@@ -12,7 +12,6 @@ import java.time.LocalTime
 data class RecurringTask(
     val id: Long = 0,
     val title: String,
-    val description: String = "",
     val estimatedDurationMinutes: Int,
     val quadrant: Quadrant,
     val dayPreference: DayPreference = DayPreference.ANY,
@@ -21,6 +20,7 @@ data class RecurringTask(
     val startDate: LocalDate,
     val endDate: LocalDate? = null,
     val fixedTime: LocalTime? = null,
+    val tagId: Long? = null,
     val createdAt: Instant = Instant.now(),
     val updatedAt: Instant = Instant.now(),
 )
