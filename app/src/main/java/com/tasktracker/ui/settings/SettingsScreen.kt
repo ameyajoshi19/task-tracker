@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Notifications
@@ -41,6 +42,7 @@ fun SettingsScreen(
     onNavigateToSync: () -> Unit,
     onNavigateToTheme: () -> Unit,
     onNavigateToDailySummary: () -> Unit,
+    onNavigateToHelp: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -119,6 +121,15 @@ fun SettingsScreen(
                 title = "Theme",
                 subtitle = uiState.themeModeLabel,
                 onClick = onNavigateToTheme,
+            )
+
+            SettingsRow(
+                icon = Icons.Outlined.HelpOutline,
+                iconColor = SortdColors.accent,
+                tintBg = SortdColors.accent.copy(alpha = 0.15f),
+                title = "Help",
+                subtitle = "Features & how-tos",
+                onClick = onNavigateToHelp,
             )
 
             Spacer(Modifier.height(16.dp))

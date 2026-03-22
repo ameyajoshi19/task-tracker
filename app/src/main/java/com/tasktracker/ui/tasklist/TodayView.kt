@@ -193,7 +193,7 @@ private fun LazyListScope.todaySection(
             count = count,
         )
     }
-    items(tasks, key = { it.task.id }) { taskInfo ->
+    items(tasks, key = { "${headerLabel}-${it.task.id}" }) { taskInfo ->
         SwipeableTaskCard(
             taskInfo = taskInfo,
             onEdit = { onEdit(taskInfo.task.id) },

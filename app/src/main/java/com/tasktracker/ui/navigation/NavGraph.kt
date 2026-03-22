@@ -13,6 +13,7 @@ import com.tasktracker.ui.schedule.ScheduleScreen
 import com.tasktracker.ui.settings.AccountScreen
 import com.tasktracker.ui.settings.AvailabilitySettingsScreen
 import com.tasktracker.ui.settings.CalendarsScreen
+import com.tasktracker.ui.settings.HelpScreen
 import com.tasktracker.ui.settings.SettingsScreen
 import com.tasktracker.ui.settings.SyncScreen
 import com.tasktracker.ui.settings.DailySummaryScreen
@@ -90,6 +91,7 @@ fun TaskTrackerNavGraph(
                 onNavigateToSync = { navController.navigate(Screen.SettingsSync.route) },
                 onNavigateToTheme = { navController.navigate(Screen.SettingsTheme.route) },
                 onNavigateToDailySummary = { navController.navigate(Screen.SettingsDailySummary.route) },
+                onNavigateToHelp = { navController.navigate(Screen.SettingsHelp.route) },
             )
         }
         composable(Screen.SettingsAccount.route) {
@@ -124,6 +126,11 @@ fun TaskTrackerNavGraph(
         }
         composable(Screen.SettingsDailySummary.route) {
             DailySummaryScreen(
+                onNavigateBack = { navController.popBackStack() },
+            )
+        }
+        composable(Screen.SettingsHelp.route) {
+            HelpScreen(
                 onNavigateBack = { navController.popBackStack() },
             )
         }

@@ -147,114 +147,127 @@ fun TagSelector(
 
                 HorizontalDivider()
 
-                if (!showCreateForm) {
-                    // "+ Add new tag" option
-                    DropdownMenuItem(
-                        text = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Icon(
-                                    Icons.Default.Add,
-                                    contentDescription = null,
-                                    tint = SortdColors.accent,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                                Text(
-                                    "Add new tag",
-                                    color = SortdColors.accent,
-                                    fontWeight = FontWeight.Medium,
-                                )
-                            }
-                        },
-                        onClick = { showCreateForm = true },
-                    )
-                } else {
-                    // Inline create form
-                    Column(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        OutlinedTextField(
-                            value = newTagName,
-                            onValueChange = { newTagName = it },
-                            placeholder = { Text("Tag name") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = SortdColors.accent,
-                            ),
-                        )
-
-                        // Color picker row
+                // "+ Add new tag" option
+                DropdownMenuItem(
+                    text = {
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            TagColorOptions.forEach { colorValue ->
-                                val isSelected = selectedColor == colorValue
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(colorValue))
-                                        .then(
-                                            if (isSelected) Modifier.border(
-                                                2.dp,
-                                                MaterialTheme.colorScheme.onSurface,
-                                                CircleShape,
-                                            ) else Modifier
-                                        )
-                                        .clickable { selectedColor = colorValue },
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    if (isSelected) {
-                                        val checkColor = if (Color(colorValue).luminance() > 0.5f) Color.Black else Color.White
-                                        Icon(
-                                            Icons.Default.Check,
-                                            contentDescription = null,
-                                            tint = checkColor,
-                                            modifier = Modifier.size(14.dp),
-                                        )
-                                    }
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = null,
+                                tint = SortdColors.accent,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Text(
+                                "Add new tag",
+                                color = SortdColors.accent,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
+                    },
+                    onClick = {
+                        expanded = false
+                        showCreateForm = true
+                    },
+                )
+            }
+        }
+
+        // Inline create form — shown outside the dropdown to avoid focus issues
+        if (showCreateForm) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                ),
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = newTagName,
+                        onValueChange = { newTagName = it },
+                        placeholder = { Text("Tag name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = SortdColors.accent,
+                        ),
+                    )
+
+                    // Color picker row
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        TagColorOptions.forEach { colorValue ->
+                            val isSelected = selectedColor == colorValue
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(colorValue))
+                                    .then(
+                                        if (isSelected) Modifier.border(
+                                            2.dp,
+                                            MaterialTheme.colorScheme.onSurface,
+                                            CircleShape,
+                                        ) else Modifier
+                                    )
+                                    .clickable { selectedColor = colorValue },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (isSelected) {
+                                    val checkColor = if (Color(colorValue).luminance() > 0.5f) Color.Black else Color.White
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = checkColor,
+                                        modifier = Modifier.size(14.dp),
+                                    )
                                 }
                             }
                         }
+                    }
 
-                        // Create / Cancel buttons
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    // Create / Cancel buttons
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                showCreateForm = false
+                                newTagName = ""
+                            },
+                            modifier = Modifier.weight(1f),
                         ) {
-                            OutlinedButton(
-                                onClick = {
-                                    showCreateForm = false
+                            Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Cancel")
+                        }
+                        Button(
+                            onClick = {
+                                if (newTagName.isNotBlank()) {
+                                    onCreateTag(newTagName.trim(), selectedColor)
                                     newTagName = ""
-                                },
-                                modifier = Modifier.weight(1f),
-                            ) {
-                                Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Cancel")
-                            }
-                            Button(
-                                onClick = {
-                                    if (newTagName.isNotBlank()) {
-                                        onCreateTag(newTagName.trim(), selectedColor)
-                                        newTagName = ""
-                                        showCreateForm = false
-                                    }
-                                },
-                                enabled = newTagName.isNotBlank(),
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = SortdColors.accent,
-                                ),
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Create")
-                            }
+                                    showCreateForm = false
+                                }
+                            },
+                            enabled = newTagName.isNotBlank(),
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = SortdColors.accent,
+                            ),
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Create")
                         }
                     }
                 }
